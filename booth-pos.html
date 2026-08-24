@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>บันทึกยอดขายหน้าบูธ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#211b17;
+    --surface:#2c2420;
+    --surface-2:#382e28;
+    --edge:#4a3d34;
+    --text:#f4ede2;
+    --muted:#b3a292;
+    --gold:#e3a23c;
+    --gold-dim:#5c4526;
+    --lime:#96c23f;
+    --lime-dim:#3f4b26;
+    --chili:#d6553f;
+    --chili-dim:#5a3128;
+    --good:#7fbf6a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(227,162,60,0.10), transparent 45%),
+      radial-gradient(circle at 90% 10%, rgba(150,194,63,0.08), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Kanit',sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:18px 16px 0;}
+
+  /* Header / ticket */
+  .ticket{
+    background:var(--surface);
+    border:1px solid var(--edge);
+    border-radius:14px;
+    padding:18px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .ticket::before{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 8px);
+    pointer-events:none;
+  }
+  .shop-title{
+    font-weight:800; font-size:22px; letter-spacing:0.3px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .coin{
+    width:26px;height:26px;border-radius:50%;
+    background:linear-gradient(145deg,var(--gold),#b9782a);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;color:#2c1c07;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25);
+    flex-shrink:0;
+  }
+  .sub{color:var(--muted);font-size:13px;margin-top:2px;}
+  .today-row{
+    display:flex; gap:10px; margin-top:16px;
+  }
+  .stat{
+    flex:1; background:var(--surface-2); border-radius:10px; padding:12px 14px;
+    border:1px solid var(--edge);
+  }
+  .stat .label{font-size:12px;color:var(--muted);}
+  .stat .value{font-size:24px;font-weight:700;margin-top:2px;}
+  .stat.money .value{color:var(--gold);}
+  .stat.count .value{color:var(--lime);}
+
+  .status-line{
+    display:flex;align-items:center;gap:6px;
+    font-size:12px;color:var(--muted);margin-top:10px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .dot.ok{background:var(--good);}
+  .dot.err{background:var(--chili);}
+  .settings-btn{
+    background:none;border:1px solid var(--edge);color:var(--muted);
+    font-family:'Kanit',sans-serif; font-size:12px;
+    border-radius:20px; padding:4px 12px; cursor:pointer; margin-left:auto;
+  }
+  .settings-btn:active{background:var(--surface-2);}
+
+  /* Menu grid */
+  h2.section-label{
+    font-size:13px; font-weight:600; color:var(--muted);
+    text-transform:uppercase; letter-spacing:1px;
+    margin:22px 4px 10px;
+  }
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .item-btn{
+    border:none; border-radius:14px; padding:16px 14px;
+    text-align:left; cursor:pointer; position:relative;
+    font-family:'Kanit',sans-serif; color:#1c1206;
+    display:flex; flex-direction:column; gap:14px; min-height:96px;
+    transition:transform .08s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .item-btn:active{transform:scale(0.96);}
+  .item-btn.wide{grid-column:1 / -1;}
+  .item-btn .name{font-weight:600; font-size:15.5px; line-height:1.25;}
+  .item-btn .price{font-weight:800; font-size:20px;}
+  .item-btn.cat-chicken{background:linear-gradient(155deg,var(--gold),#c9862f);}
+  .item-btn.cat-drink{background:linear-gradient(155deg,var(--lime),#7aa233);}
+  .item-btn.cat-spice{background:linear-gradient(155deg,var(--chili),#b3402c);}
+  .item-btn .price::after{content:" ฿";font-size:13px;font-weight:600;opacity:.75;}
+
+  .pop{
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+    background:var(--good); color:#12310a; font-weight:700; font-size:14px;
+    padding:10px 20px; border-radius:30px; opacity:0;
+    transition:all .25s ease; pointer-events:none; z-index:50;
+    box-shadow:0 8px 20px rgba(0,0,0,0.35);
+    white-space:nowrap;
+  }
+  .pop.show{opacity:1; transform:translate(-50%,0);}
+  .pop.err{background:var(--chili); color:#3a0f08;}
+
+  /* Log */
+  .log{
+    background:var(--surface); border:1px solid var(--edge); border-radius:14px;
+    padding:6px 4px; margin-top:8px;
+  }
+  .log-row{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px; border-bottom:1px dashed var(--edge);
+    font-size:13.5px;
+  }
+  .log-row:last-child{border-bottom:none;}
+  .log-row .time{color:var(--muted); width:44px; flex-shrink:0; font-variant-numeric:tabular-nums;}
+  .log-row .lname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .log-row .lprice{color:var(--gold); font-weight:600; flex-shrink:0;}
+  .empty{padding:22px 14px; color:var(--muted); font-size:13.5px; text-align:center;}
+
+  /* Settings modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6);
+    display:none; align-items:flex-end; justify-content:center; z-index:100;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--surface); border:1px solid var(--edge);
+    border-radius:18px 18px 0 0; padding:20px; width:100%; max-width:640px;
+  }
+  .modal h3{margin:0 0 6px; font-size:17px;}
+  .modal p{color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 12px;}
+  .modal input{
+    width:100%; background:var(--surface-2); border:1px solid var(--edge);
+    color:var(--text); font-family:'Kanit',sans-serif; font-size:13.5px;
+    padding:12px 14px; border-radius:10px; margin-bottom:12px;
+  }
+  .modal-actions{display:flex; gap:10px;}
+  .modal-actions button{
+    flex:1; padding:12px; border-radius:10px; border:none; cursor:pointer;
+    font-family:'Kanit',sans-serif; font-weight:600; font-size:14px;
+  }
+  .btn-save{background:var(--gold); color:#2c1c07;}
+  .btn-cancel{background:var(--surface-2); color:var(--muted); border:1px solid var(--edge) !important;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="ticket">
+    <div class="shop-title"><span class="coin">3</span> บันทึกยอดขายหน้าบูธ</div>
+    <div class="sub">แตะเมนูที่ขายได้ ระบบจะบันทึกลง Google Sheet ให้อัตโนมัติ</div>
+
+    <div class="today-row">
+      <div class="stat money">
+        <div class="label">ยอดขายวันนี้</div>
+        <div class="value" id="todayTotal">–</div>
+      </div>
+      <div class="stat count">
+        <div class="label">จำนวนออเดอร์</div>
+        <div class="value" id="todayCount">–</div>
+      </div>
+    </div>
+
+    <div class="status-line">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">กำลังเชื่อมต่อ…</span>
+      <button class="settings-btn" id="settingsBtn">⚙ ตั้งค่า</button>
+    </div>
+  </div>
+
+  <h2 class="section-label">เมนู — แตะเพื่อบันทึกการขาย</h2>
+  <div class="grid" id="menuGrid"></div>
+
+  <h2 class="section-label">รายการล่าสุด</h2>
+  <div class="log" id="logList">
+    <div class="empty">ยังไม่มีข้อมูล</div>
+  </div>
+</div>
+
+<div class="pop" id="pop"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>ตั้งค่าการเชื่อมต่อ</h3>
+    <p>วาง URL ของ Google Apps Script Web App (ลงท้ายด้วย <code>/exec</code>) ที่ได้จากขั้นตอน Deploy</p>
+    <input type="text" id="urlInput" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelBtn">ยกเลิก</button>
+      <button class="btn-save" id="saveBtn">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MENU = [
+  { name: "ไก่ตื่น", price: 59, cat: "chicken" },
+  { name: "ไก่ตื่น + ข้าวเหนียว", price: 69, cat: "chicken" },
+  { name: "น้ำ Pepper Mojito", price: 59, cat: "drink" },
+  { name: "เซตไก่ตื่นข้าวเหนียว + Pepper Mojito", price: 99, cat: "chicken", wide: true },
+  { name: "พริกไทยตราสามเหรียญ (ขวด)", price: 25, cat: "spice" },
+  { name: "พริกไทยตราสามเหรียญ (ครึ่งโหล)", price: 125, cat: "spice" },
+];
+
+let webAppUrl = null;
+
+const grid = document.getElementById('menuGrid');
+const pop = document.getElementById('pop');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const overlay = document.getElementById('overlay');
+const urlInput = document.getElementById('urlInput');
+
+function renderMenu(){
+  grid.innerHTML = '';
+  MENU.forEach((item, idx) => {
+    const btn = document.createElement('button');
+    btn.className = `item-btn cat-${item.cat}` + (item.wide ? ' wide' : '');
+    btn.innerHTML = `<span class="name">${item.name}</span><span class="price">${item.price}</span>`;
+    btn.addEventListener('click', () => logSale(item));
+    grid.appendChild(btn);
+  });
+}
+
+function showPop(msg, isErr){
+  pop.textContent = msg;
+  pop.className = 'pop show' + (isErr ? ' err' : '');
+  setTimeout(() => pop.classList.remove('show'), 1800);
+}
+
+function setStatus(state, text){
+  statusDot.className = 'dot' + (state === 'ok' ? ' ok' : state === 'err' ? ' err' : '');
+  statusText.textContent = text;
+}
+
+// Works both as a Claude artifact (window.storage) and as a standalone
+// downloaded file opened directly in a browser (falls back to localStorage).
+const store = {
+  async get(key){
+    if(window.storage){
+      try{ const r = await window.storage.get(key, false); return r ? r.value : null; }
+      catch(e){ return null; }
+    }
+    try{ return window.localStorage.getItem(key); }catch(e){ return null; }
+  },
+  async set(key, val){
+    if(window.storage){ return window.storage.set(key, val, false); }
+    try{ window.localStorage.setItem(key, val); }catch(e){ /* ignore */ }
+  }
+};
+
+async function loadUrl(){
+  const val = await store.get('appsScriptUrl');
+  if(val) webAppUrl = val;
+
+  if(!webAppUrl){
+    setStatus('err', 'ยังไม่ได้ตั้งค่า URL');
+    openSettings();
+  }else{
+    urlInput.value = webAppUrl;
+    refreshData();
+    setInterval(refreshData, 25000);
+  }
+}
+
+async function saveUrl(){
+  const val = urlInput.value.trim();
+  if(!val.startsWith('https://script.google.com/')){
+    showPop('URL ดูไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', true);
+    return;
+  }
+  try{
+    await store.set('appsScriptUrl', val);
+    webAppUrl = val;
+    overlay.classList.remove('show');
+    showPop('บันทึก URL แล้ว');
+    refreshData();
+  }catch(e){
+    showPop('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
+  }
+}
+
+function openSettings(){ overlay.classList.add('show'); }
+
+async function logSale(item){
+  if(!webAppUrl){ openSettings(); return; }
+  showPop(`บันทึก "${item.name}" แล้ว ✓`);
+  try{
+    setStatus('', 'กำลังบันทึก…');
+    await fetch(webAppUrl, {
+      method: 'POST',
+      body: JSON.stringify({ name: item.name, price: item.price })
+    });
+    setStatus('ok', 'เชื่อมต่อ Google Sheet แล้ว');
+    refreshData();
+  }catch(e){
+    setStatus('err', 'บันทึกไม่สำเร็จ — เช็คอินเทอร์เน็ต');
+    showPop('บันทึกไม่สำเร็จ ลองแตะอีกครั้ง', true);
+  }
+}
+
+async function refreshData(){
+  if(!webAppUrl) return;
+  try{
+    const res = await fetch(webAppUrl, { method: 'GET' });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error || 'unknown');
+
+    document.getElementById('todayTotal').textContent = data.todayTotal.toLocaleString() + ' ฿';
+    document.getElementById('todayCount').textContent = data.todayCount;
+    setStatus('ok', 'เชื่อมต่อ Google Sheet แล้ว');
+    renderLog(data.entries);
+  }catch(e){
+    setStatus('err', 'เชื่อมต่อไม่ได้ — ตรวจสอบ URL');
+  }
+}
+
+function renderLog(entries){
+  const el = document.getElementById('logList');
+  if(!entries || entries.length === 0){
+    el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
+    return;
+  }
+  el.innerHTML = entries.map(r => `
+    <div class="log-row">
+      <span class="time">${r.time}</span>
+      <span class="lname">${r.name}</span>
+      <span class="lprice">${Number(r.price).toLocaleString()} ฿</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('cancelBtn').addEventListener('click', () => overlay.classList.remove('show'));
+document.getElementById('saveBtn').addEventListener('click', saveUrl);
+
+renderMenu();
+loadUrl();
+</script>
+</body>
+</html>
