@@ -249,8 +249,6 @@ const MENU = [
   { name: "พริกไทยตราสามเหรียญ (ครึ่งโหล)", price: 125, cat: "spice", img: IMG.pepper_6pack },
 ];
 
-const DEFAULT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw9ypGH-wWJhzobmhXZzCQ1BoIM5EQCzf9ECYQRRbmo7LawvRyqDb8F3vdvY6YQ9C4KQ/exec";
-
 let webAppUrl = null;
 
 const grid = document.getElementById('menuGrid');
@@ -307,10 +305,15 @@ const store = {
 
 async function loadUrl(){
   const val = await store.get('appsScriptUrl');
-  webAppUrl = val || DEFAULT_WEBAPP_URL;
-  urlInput.value = webAppUrl;
-  refreshData();
-  setInterval(refreshData, 25000);
+  if(val){
+    webAppUrl = val;
+    urlInput.value = val;
+    refreshData();
+    setInterval(refreshData, 25000);
+  }else{
+    setStatus('err', 'ยังไม่ได้ตั้งค่า URL');
+    openSettings();
+  }
 }
 
 async function saveUrl(){
