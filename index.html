@@ -341,17 +341,42 @@ async function saveUrl(){
 
 function openSettings(){ overlay.classList.add('show'); }
 
+// Google Apps Script Web Apps don't reliably send CORS headers, so a
+// normal cross-origin fetch() for reading JSON often gets silently
+// blocked by the browser even though the URL works fine when opened
+// directly. JSONP (loading the response as a <script> tag) sidesteps
+// this entirely because script tags aren't subject to CORS.
+let jsonpCounter = 0;
+function jsonpRequest(url, timeoutMs = 8000){
+  return new Promise((resolve, reject) => {
+    const cbName = `boothPosCb${Date.now()}_${jsonpCounter++}`;
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, timeoutMs);
+    function cleanup(){
+      delete window[cbName];
+      script.remove();
+      clearTimeout(timer);
+    }
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.src = `${url}${url.includes('?') ? '&' : '?'}callback=${cbName}&_=${Date.now()}`;
+    script.onerror = () => { cleanup(); reject(new Error('script load error')); };
+    document.body.appendChild(script);
+  });
+}
+
 async function logSale(item){
   if(!webAppUrl){ openSettings(); return; }
   showPop(`บันทึก "${item.name}" แล้ว ✓`);
   try{
     setStatus('', 'กำลังบันทึก…');
+    // mode:'no-cors' — we don't need to read the response, just fire the
+    // request; this avoids the browser rejecting it over missing CORS headers.
     await fetch(webAppUrl, {
       method: 'POST',
+      mode: 'no-cors',
       body: JSON.stringify({ name: item.name, price: item.price })
     });
-    setStatus('ok', 'เชื่อมต่อ Google Sheet แล้ว');
-    refreshData();
+    await refreshData();
   }catch(e){
     setStatus('err', 'บันทึกไม่สำเร็จ — เช็คอินเทอร์เน็ต');
     showPop('บันทึกไม่สำเร็จ ลองแตะอีกครั้ง', true);
@@ -361,8 +386,7 @@ async function logSale(item){
 async function refreshData(){
   if(!webAppUrl) return;
   try{
-    const res = await fetch(webAppUrl, { method: 'GET' });
-    const data = await res.json();
+    const data = await jsonpRequest(webAppUrl);
     if(!data.success) throw new Error(data.error || 'unknown');
 
     document.getElementById('todayTotal').textContent = data.todayTotal.toLocaleString() + ' ฿';
@@ -418,6 +442,7 @@ async function deleteSelected(){
   try{
     await fetch(webAppUrl, {
       method: 'POST',
+      mode: 'no-cors',
       body: JSON.stringify({ action: 'delete', rows })
     });
     showPop(`ลบ ${rows.length} รายการแล้ว`);
