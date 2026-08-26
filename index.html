@@ -287,6 +287,7 @@
       <span class="dot" id="statusDot"></span>
       <span id="statusText">กำลังเชื่อมต่อ…</span>
       <span class="pending-pill" id="pendingPill"><span class="spin"></span><span id="pendingCount">0</span> รอซิงค์</span>
+      <button class="settings-btn" id="syncNowBtn" title="ซิงค์ตอนนี้">🔄</button>
       <button class="settings-btn" id="settingsBtn">⚙ ตั้งค่า</button>
     </div>
   </div>
@@ -359,6 +360,10 @@ let serverTodayCount = 0;
 let serverSummaryToday = {}; // { "ชื่อเมนู": จำนวนที่ขายวันนี้ตามเซิร์ฟเวอร์ }
 let localEntries = [];
 let currentTab = 'log'; // 'log' | 'summary'
+
+// รายการที่กำลังรอลบ (ติ๊กแล้วกดลบ แต่ยังไม่ยืนยันว่า Sheet ลบสำเร็จจริง)
+// ซ่อนจากหน้าจอทันทีตั้งแต่กดลบ ไม่ต้องรอ sync เสร็จ แล้ว retry เบื้องหลังจนสำเร็จ
+let pendingDeleteRows = [];
 
 const grid = document.getElementById('menuGrid');
 const pop = document.getElementById('pop');
@@ -437,6 +442,16 @@ async function loadLocalEntries(){
   } catch (e) { localEntries = []; }
 }
 
+async function savePendingDeleteRows(){
+  try { await store.set('pendingDeleteRows', JSON.stringify(pendingDeleteRows)); } catch (e) { /* ignore */ }
+}
+async function loadPendingDeleteRows(){
+  try {
+    const raw = await store.get('pendingDeleteRows');
+    if (raw) pendingDeleteRows = JSON.parse(raw);
+  } catch (e) { pendingDeleteRows = []; }
+}
+
 // ===== fetch with timeout so a slow connection doesn't hang forever =====
 async function fetchWithTimeout(url, options, timeoutMs){
   const controller = new AbortController();
@@ -450,8 +465,34 @@ async function fetchWithTimeout(url, options, timeoutMs){
 }
 
 // ===== main flow =====
+let syncLoopsStarted = false;
+
+// ตั้งค่า loop คอย sync เบื้องหลัง (retry การขาย / retry การลบ / ดึงข้อมูลเป็นรอบ)
+// ต้องถูกเรียกครั้งเดียวไม่ว่าจะมี URL อยู่แล้วตอนเปิดแอป หรือเพิ่งมาวางทีหลังผ่านหน้าตั้งค่า
+// (เดิมมีบั๊ก: ถ้าเพิ่งวาง URL ครั้งแรกผ่านหน้าตั้งค่า loop นี้จะไม่เคยถูกตั้งเลยตลอด session
+//  ทำให้ถ้าการส่งครั้งแรกพลาด จะไม่มีการ retry อัตโนมัติอีกต่อไปจนกว่าจะรีเฟรชหน้า)
+function startSyncLoops(){
+  if (syncLoopsStarted) return;
+  syncLoopsStarted = true;
+  setInterval(refreshData, 25000);    // ดึงข้อมูลจริงจาก Sheet เป็นรอบ ไม่ถี่เกินไป
+  setInterval(trySendPending, 5000);  // retry รายการขายที่ยังส่งไม่สำเร็จ
+  setInterval(trySendDeletes, 5000);  // retry คำสั่งลบที่ยังส่งไม่สำเร็จ
+}
+
+// ดีบาวซ์: หลังส่งสำเร็จ ดึงข้อมูลจริงจาก Sheet มายืนยันเร็วขึ้น (ไม่ต้องรอครบ 25 วิ)
+// แต่ไม่ยิงถี่เกินไปถ้ามีหลายรายการสำเร็จติดกัน
+let quickSyncTimer = null;
+function scheduleQuickSync(){
+  if (quickSyncTimer) return;
+  quickSyncTimer = setTimeout(() => {
+    quickSyncTimer = null;
+    refreshData();
+  }, 1500);
+}
+
 async function loadUrl(){
   await loadLocalEntries();
+  await loadPendingDeleteRows();
   renderCombined();
 
   const val = await store.get('appsScriptUrl');
@@ -462,15 +503,17 @@ async function loadUrl(){
     openSettings();
   } else {
     urlInput.value = webAppUrl;
+    setStatus('', 'กำลังเชื่อมต่อครั้งแรก อาจใช้เวลาสักครู่…');
     refreshData();
     trySendPending();
-    setInterval(refreshData, 25000);   // ดึงข้อมูลจริงจาก Sheet เป็นรอบ ไม่ถี่เกินไป
-    setInterval(trySendPending, 5000); // retry รายการที่ยังส่งไม่สำเร็จ
+    trySendDeletes();
+    startSyncLoops();
   }
 }
 
 async function saveUrl(){
-  const val = urlInput.value.trim();
+  let val = urlInput.value.trim();
+  if (val.endsWith('/')) val = val.slice(0, -1);
   if (!val.startsWith('https://script.google.com/')){
     showPop('URL ดูไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', true);
     return;
@@ -479,9 +522,12 @@ async function saveUrl(){
     await store.set('appsScriptUrl', val);
     webAppUrl = val;
     overlay.classList.remove('show');
-    showPop('บันทึก URL แล้ว');
+    showPop('บันทึก URL แล้ว กำลังเชื่อมต่อ…');
+    setStatus('', 'กำลังเชื่อมต่อครั้งแรก อาจใช้เวลาสักครู่…');
     refreshData();
     trySendPending();
+    trySendDeletes();
+    startSyncLoops(); // สำคัญ: ต้องเรียกตรงนี้ด้วย ไม่งั้นจะไม่มี loop คอย retry เลยตลอด session
   } catch (e) {
     showPop('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
   }
@@ -514,19 +560,22 @@ async function trySendPending(){
   const toSend = localEntries.filter(e => !e.posted);
   if (toSend.length === 0){ updatePendingIndicator(); return; }
 
+  let anySucceeded = false;
   for (const entry of toSend){
     try {
       await fetchWithTimeout(webAppUrl, {
         method: 'POST',
         body: JSON.stringify({ name: entry.name, price: entry.price, localId: entry.localId })
-      }, 8000);
+      }, 12000);
       entry.posted = true;
+      anySucceeded = true;
     } catch (e) {
       // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - จะลองใหม่รอบถัดไปอัตโนมัติ ไม่ต้องแจ้งเตือนรบกวน
     }
   }
   saveLocalEntries();
   updatePendingIndicator();
+  if (anySucceeded) scheduleQuickSync(); // ยืนยันจาก Sheet เร็วขึ้น ไม่ต้องรอครบ 25 วิ
 }
 
 function updatePendingIndicator(){
@@ -542,17 +591,19 @@ function updatePendingIndicator(){
 async function refreshData(){
   if (!webAppUrl) return;
   try {
-    const res = await fetchWithTimeout(webAppUrl, { method: 'GET' }, 10000);
+    const res = await fetchWithTimeout(webAppUrl, { method: 'GET' }, 15000);
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'unknown');
 
-    serverEntries = data.entries || [];
+    // ซ่อนรายการที่กำลังรอลบ (ยังไม่ยืนยันว่าลบสำเร็จจริงใน Sheet) ไม่ให้โผล่กลับมา
+    const hidingRows = new Set(pendingDeleteRows);
+    serverEntries = (data.entries || []).filter(e => !hidingRows.has(e.row));
     serverTodayTotal = data.todayTotal || 0;
     serverTodayCount = data.todayCount || 0;
     serverSummaryToday = data.summaryToday || {};
 
     // เอารายการที่ตอนนี้ Sheet มีแล้ว (ยืนยันด้วย localId ตรงกัน) ออกจาก localEntries
-    const confirmedIds = new Set(serverEntries.map(e => e.localId).filter(Boolean));
+    const confirmedIds = new Set((data.entries || []).map(e => e.localId).filter(Boolean));
     localEntries = localEntries.filter(e => !confirmedIds.has(e.localId));
     saveLocalEntries();
 
@@ -560,9 +611,15 @@ async function refreshData(){
     renderCombined();
     updatePendingIndicator();
   } catch (e) {
-    setStatus('err', 'เชื่อมต่อไม่ได้ — ตรวจสอบเน็ต/URL');
+    setStatus('err', 'เชื่อมต่อไม่ได้ — กำลังลองใหม่อัตโนมัติ');
     // ไม่ล้างข้อมูลที่แสดงอยู่ เพื่อไม่ให้จอกระพริบตอนเน็ตสะดุดแป๊บเดียว
   }
+}
+
+async function syncNow(){
+  showPop('กำลังซิงค์…');
+  setStatus('', 'กำลังซิงค์…');
+  await Promise.allSettled([refreshData(), trySendPending(), trySendDeletes()]);
 }
 
 // รวมรายการฝั่งเครื่อง (ยังไม่ยืนยัน) + รายการจริงจาก Sheet มาแสดงเป็นชุดเดียว
@@ -677,28 +734,60 @@ function updateDeleteBtn(){
   deleteBtn.classList.toggle('show', selectedRows.size > 0);
 }
 
-async function deleteSelected(){
+// กดลบปุ๊บ -> หายจากจอทันที (พร้อมหักยอด/จำนวนออกจากยอดรวมทันทีด้วย) ไม่ต้องรอซิงค์เสร็จ
+// แล้วค่อยส่งคำสั่งลบจริงไป Google Sheet เบื้องหลัง มี retry อัตโนมัติถ้าเน็ตสะดุด
+//
+// หมายเหตุ: ระหว่างที่ยังมีคิวลบค้างอยู่ (pendingDeleteRows) จะยังไม่ให้กดลบชุดใหม่ซ้อน
+// เพื่อกันเลขแถวคลาดเคลื่อนหากแถวใน Sheet เลื่อนตำแหน่งระหว่างที่ยังไม่ยืนยันผล
+function deleteSelected(){
   if (!webAppUrl || selectedRows.size === 0) return;
+
+  if (pendingDeleteRows.length > 0){
+    showPop('กำลังลบรายการก่อนหน้าอยู่ รอสักครู่แล้วลองใหม่อีกครั้ง', true);
+    return;
+  }
+
   const rows = Array.from(selectedRows);
-  deleteBtn.disabled = true;
+  const rowsSet = new Set(rows);
+
+  const removed = serverEntries.filter(e => rowsSet.has(e.row));
+  const removedTotal = removed.reduce((s, e) => s + e.price, 0);
+  serverTodayTotal -= removedTotal;
+  serverTodayCount -= removed.length;
+  removed.forEach(e => {
+    if (serverSummaryToday[e.name] !== undefined) serverSummaryToday[e.name]--;
+  });
+  serverEntries = serverEntries.filter(e => !rowsSet.has(e.row));
+
+  selectedRows = new Set();
+  pendingDeleteRows = rows;
+  savePendingDeleteRows();
+  renderCombined();
+  updateDeleteBtn();
+  showPop(`ลบ ${rows.length} รายการแล้ว`);
+
+  trySendDeletes();
+}
+
+async function trySendDeletes(){
+  if (!webAppUrl || pendingDeleteRows.length === 0) return;
   try {
     await fetchWithTimeout(webAppUrl, {
       method: 'POST',
-      body: JSON.stringify({ action: 'delete', rows })
-    }, 10000);
-    showPop(`ลบ ${rows.length} รายการแล้ว`);
-    selectedRows = new Set();
-    await refreshData();
+      body: JSON.stringify({ action: 'delete', rows: pendingDeleteRows })
+    }, 12000);
+    pendingDeleteRows = [];
+    savePendingDeleteRows();
+    await refreshData(); // ดึงเลขแถวที่ถูกต้องล่าสุดทันที ก่อนจะอนุญาตให้ลบชุดถัดไป
   } catch (e) {
-    showPop('ลบไม่สำเร็จ ลองใหม่อีกครั้ง', true);
-  } finally {
-    deleteBtn.disabled = false;
+    // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - จะลองใหม่รอบถัดไปอัตโนมัติ รายการยังคงถูกซ่อนอยู่เหมือนเดิม
   }
 }
 
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('cancelBtn').addEventListener('click', () => overlay.classList.remove('show'));
 document.getElementById('saveBtn').addEventListener('click', saveUrl);
+document.getElementById('syncNowBtn').addEventListener('click', syncNow);
 deleteBtn.addEventListener('click', deleteSelected);
 document.getElementById('tabLogBtn').addEventListener('click', () => setTab('log'));
 document.getElementById('tabSummaryBtn').addEventListener('click', () => setTab('summary'));
