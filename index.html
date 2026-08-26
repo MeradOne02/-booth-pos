@@ -171,12 +171,11 @@
     padding:6px 4px; margin-top:8px;
   }
   .log-row{
+    display:flex; align-items:center; gap:10px;
     padding:10px 14px; border-bottom:1px dashed var(--edge);
     font-size:13.5px;
   }
   .log-row:last-child{border-bottom:none;}
-  .log-row-top{display:flex; align-items:center; gap:10px;}
-  .log-row-bottom{display:flex; justify-content:flex-end; margin-top:7px;}
   .log-row input[type="checkbox"]{
     width:18px; height:18px; flex-shrink:0; accent-color:var(--chili);
     cursor:pointer;
@@ -191,16 +190,6 @@
     width:12px;height:12px;border-radius:50%;flex-shrink:0;
     border:2px solid var(--gold); border-top-color:transparent;
     animation:spin 0.8s linear infinite;
-  }
-  .paid-chip{
-    border:1px solid var(--chili); background:var(--chili-dim); color:#ffcabf;
-    font-family:'Kanit',sans-serif; font-size:11.5px; font-weight:600;
-    padding:5px 11px; border-radius:20px; cursor:pointer;
-    -webkit-tap-highlight-color:transparent; user-select:none;
-  }
-  .paid-chip:active{opacity:0.75;}
-  .paid-chip.paid{
-    border-color:var(--good); background:var(--lime-dim); color:#d3f0c4;
   }
   .empty{padding:22px 14px; color:var(--muted); font-size:13.5px; text-align:center;}
 
@@ -371,10 +360,6 @@ let serverSummaryToday = {}; // { "ชื่อเมนู": จำนวนท
 let localEntries = [];
 let currentTab = 'log'; // 'log' | 'summary'
 
-// คิวอัปเดต "จ่ายแล้ว/ยังไม่จ่าย" ที่ยังส่งไม่สำเร็จ รอ retry เหมือนคิวขายสินค้า
-// แต่ละอันมี row (ถ้ารู้เลขแถวใน Sheet แล้ว) หรือ localId (ถ้ายังไม่ยืนยันเลขแถว)
-let pendingPaidActions = [];
-
 const grid = document.getElementById('menuGrid');
 const pop = document.getElementById('pop');
 const statusDot = document.getElementById('statusDot');
@@ -452,16 +437,6 @@ async function loadLocalEntries(){
   } catch (e) { localEntries = []; }
 }
 
-async function savePendingPaidActions(){
-  try { await store.set('pendingPaidActions', JSON.stringify(pendingPaidActions)); } catch (e) { /* ignore */ }
-}
-async function loadPendingPaidActions(){
-  try {
-    const raw = await store.get('pendingPaidActions');
-    if (raw) pendingPaidActions = JSON.parse(raw);
-  } catch (e) { pendingPaidActions = []; }
-}
-
 // ===== fetch with timeout so a slow connection doesn't hang forever =====
 async function fetchWithTimeout(url, options, timeoutMs){
   const controller = new AbortController();
@@ -477,7 +452,6 @@ async function fetchWithTimeout(url, options, timeoutMs){
 // ===== main flow =====
 async function loadUrl(){
   await loadLocalEntries();
-  await loadPendingPaidActions();
   renderCombined();
 
   const val = await store.get('appsScriptUrl');
@@ -490,10 +464,8 @@ async function loadUrl(){
     urlInput.value = webAppUrl;
     refreshData();
     trySendPending();
-    trySendPaidUpdates();
     setInterval(refreshData, 25000);   // ดึงข้อมูลจริงจาก Sheet เป็นรอบ ไม่ถี่เกินไป
-    setInterval(trySendPending, 5000); // retry รายการขายที่ยังส่งไม่สำเร็จ
-    setInterval(trySendPaidUpdates, 5000); // retry การอัปเดต "จ่ายแล้ว" ที่ยังส่งไม่สำเร็จ
+    setInterval(trySendPending, 5000); // retry รายการที่ยังส่งไม่สำเร็จ
   }
 }
 
@@ -527,7 +499,6 @@ function logSale(item){
     price: item.price,
     time: nowTimeLabel(),
     posted: false,
-    paid: false, // ค่าเริ่มต้น: ยังไม่ได้ติ๊กว่าจ่ายเงินแล้ว (ไม่กระทบยอดรวม)
   };
   localEntries.unshift(entry);
   saveLocalEntries();
@@ -547,7 +518,7 @@ async function trySendPending(){
     try {
       await fetchWithTimeout(webAppUrl, {
         method: 'POST',
-        body: JSON.stringify({ name: entry.name, price: entry.price, localId: entry.localId, paid: !!entry.paid })
+        body: JSON.stringify({ name: entry.name, price: entry.price, localId: entry.localId })
       }, 8000);
       entry.posted = true;
     } catch (e) {
@@ -568,64 +539,6 @@ function updatePendingIndicator(){
   }
 }
 
-// ผู้ใช้แตะติ๊ก "จ่ายแล้ว" -> อัปเดตหน้าจอทันที (ไม่กระทบยอดรวม/จำนวนออเดอร์เลย)
-// แล้วค่อยส่งไปอัปเดตใน Google Sheet เบื้องหลัง พร้อม retry เหมือนรายการขาย
-function togglePaid(kind, id){
-  if (kind === 'server'){
-    const found = serverEntries.find(e => e.row === id);
-    if (!found) return;
-    found.paid = !found.paid;
-    enqueuePaidAction({ row: id, paid: found.paid });
-  } else {
-    const found = localEntries.find(e => e.localId === id);
-    if (!found) return;
-    found.paid = !found.paid;
-    saveLocalEntries();
-    // ถ้ารายการนี้ถูกส่งไป Sheet สำเร็จแล้ว (แต่ยังไม่ยืนยันเลขแถวจาก GET) ต้องอัปเดตแยกโดยอ้างจาก localId
-    // ถ้ายังไม่เคยส่งเลย ไม่ต้องทำอะไรเพิ่ม เพราะค่า paid จะติดไปกับตอนส่งขายรอบแรกอยู่แล้ว
-    if (found.posted){
-      enqueuePaidAction({ localId: id, paid: found.paid });
-    }
-  }
-  renderCombined();
-}
-
-function enqueuePaidAction(action){
-  pendingPaidActions.push({ ...action, id: genLocalId() });
-  savePendingPaidActions();
-  trySendPaidUpdates();
-}
-
-async function trySendPaidUpdates(){
-  if (!webAppUrl || pendingPaidActions.length === 0) return;
-  const remaining = [];
-  for (const action of pendingPaidActions){
-    try {
-      const body = { action: 'setPaid', paid: action.paid };
-      if (action.row) body.row = action.row;
-      if (action.localId) body.localId = action.localId;
-      await fetchWithTimeout(webAppUrl, {
-        method: 'POST',
-        body: JSON.stringify(body)
-      }, 8000);
-    } catch (e) {
-      remaining.push(action); // ส่งไม่สำเร็จ เก็บไว้ retry รอบถัดไป
-    }
-  }
-  pendingPaidActions = remaining;
-  savePendingPaidActions();
-}
-
-// เอาค่า "จ่ายแล้ว" ที่ยังรอ sync มาทับข้อมูลสดจากเซิร์ฟเวอร์ ป้องกันจอกระพริบกลับไปค่าเก่า
-function reapplyPendingPaid(){
-  pendingPaidActions.forEach(action => {
-    let found = null;
-    if (action.row) found = serverEntries.find(e => e.row === action.row);
-    if (!found && action.localId) found = serverEntries.find(e => e.localId === action.localId);
-    if (found) found.paid = action.paid;
-  });
-}
-
 async function refreshData(){
   if (!webAppUrl) return;
   try {
@@ -637,7 +550,6 @@ async function refreshData(){
     serverTodayTotal = data.todayTotal || 0;
     serverTodayCount = data.todayCount || 0;
     serverSummaryToday = data.summaryToday || {};
-    reapplyPendingPaid();
 
     // เอารายการที่ตอนนี้ Sheet มีแล้ว (ยืนยันด้วย localId ตรงกัน) ออกจาก localEntries
     const confirmedIds = new Set(serverEntries.map(e => e.localId).filter(Boolean));
@@ -725,34 +637,20 @@ function renderLog(){
 
   const pendingHtml = localEntries.map(e => `
     <div class="log-row pending">
-      <div class="log-row-top">
-        <span class="checkbox-spacer"></span>
-        <span class="time">${e.time}</span>
-        <span class="lname">${e.name}</span>
-        <span class="lprice">${Number(e.price).toLocaleString()} ฿</span>
-        <span class="sync-spin" title="กำลังซิงค์"></span>
-      </div>
-      <div class="log-row-bottom">
-        <button type="button" class="paid-chip${e.paid ? ' paid' : ''}" data-kind="local" data-id="${e.localId}">
-          ${e.paid ? '✓ จ่ายแล้ว' : '○ ยังไม่จ่าย'}
-        </button>
-      </div>
+      <span class="checkbox-spacer"></span>
+      <span class="time">${e.time}</span>
+      <span class="lname">${e.name}</span>
+      <span class="lprice">${Number(e.price).toLocaleString()} ฿</span>
+      <span class="sync-spin" title="กำลังซิงค์"></span>
     </div>
   `).join('');
 
   const confirmedHtml = serverEntries.map(r => `
     <div class="log-row" data-row="${r.row}">
-      <div class="log-row-top">
-        <input type="checkbox" data-row="${r.row}">
-        <span class="time">${r.time}</span>
-        <span class="lname">${r.name}</span>
-        <span class="lprice">${Number(r.price).toLocaleString()} ฿</span>
-      </div>
-      <div class="log-row-bottom">
-        <button type="button" class="paid-chip${r.paid ? ' paid' : ''}" data-kind="server" data-id="${r.row}">
-          ${r.paid ? '✓ จ่ายแล้ว' : '○ ยังไม่จ่าย'}
-        </button>
-      </div>
+      <input type="checkbox" data-row="${r.row}">
+      <span class="time">${r.time}</span>
+      <span class="lname">${r.name}</span>
+      <span class="lprice">${Number(r.price).toLocaleString()} ฿</span>
     </div>
   `).join('');
 
@@ -770,15 +668,6 @@ function renderLog(){
       if (cb.checked){ selectedRows.add(row); rowEl.classList.add('checked'); }
       else { selectedRows.delete(row); rowEl.classList.remove('checked'); }
       updateDeleteBtn();
-    });
-  });
-
-  // ปุ่มติ๊ก "จ่ายแล้ว" — ไม่เกี่ยวกับการเลือกลบ และไม่กระทบยอดรวม/จำนวนออเดอร์เลย
-  el.querySelectorAll('.paid-chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const kind = btn.dataset.kind;
-      const id = kind === 'server' ? Number(btn.dataset.id) : btn.dataset.id;
-      togglePaid(kind, id);
     });
   });
 }
