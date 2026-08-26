@@ -186,10 +186,14 @@
   .log-row .lprice{color:var(--gold); font-weight:600; flex-shrink:0;}
   .log-row.checked{background:rgba(214,85,63,0.12);}
   .log-row.pending{opacity:0.65;}
+  .log-row.stale{opacity:1; background:rgba(214,85,63,0.08);}
   .log-row .sync-spin{
     width:12px;height:12px;border-radius:50%;flex-shrink:0;
     border:2px solid var(--gold); border-top-color:transparent;
     animation:spin 0.8s linear infinite;
+  }
+  .log-row .sync-warn{
+    color:var(--chili); font-size:15px; flex-shrink:0; line-height:1;
   }
   .empty{padding:22px 14px; color:var(--muted); font-size:13.5px; text-align:center;}
 
@@ -342,7 +346,7 @@ const IMG = {
 const MENU = [
   { name: "ไก่ตื่น", price: 59, cat: "chicken", img: IMG.chicken },
   { name: "ไก่ตื่น + ข้าวเหนียว", price: 69, cat: "chicken", img: IMG.chicken_rice },
-  { name: "น้ำ Pepper Mojito", price: 59, cat: "drink", img: IMG.mojito, wide: true },
+  { name: "น้ำ Pepper Mojito", price: 49, cat: "drink", img: IMG.mojito, wide: true },
   { name: "เซตไก่ตื่นข้าวเหนียว + Pepper Mojito", price: 99, cat: "chicken", img: IMG.set, wide: true },
   { name: "พริกไทยตราสามเหรียญ (ขวด)", price: 25, cat: "spice", img: IMG.pepper_bottle },
   { name: "พริกไทยตราสามเหรียญ (ครึ่งโหล)", price: 125, cat: "spice", img: IMG.pepper_6pack },
@@ -363,7 +367,12 @@ let currentTab = 'log'; // 'log' | 'summary'
 
 // รายการที่กำลังรอลบ (ติ๊กแล้วกดลบ แต่ยังไม่ยืนยันว่า Sheet ลบสำเร็จจริง)
 // ซ่อนจากหน้าจอทันทีตั้งแต่กดลบ ไม่ต้องรอ sync เสร็จ แล้ว retry เบื้องหลังจนสำเร็จ
-let pendingDeleteRows = [];
+let pendingDeleteRows = [];       // ลบด้วยเลขแถว (สำหรับรายการที่ยืนยันแล้วว่ามีอยู่จริงใน Sheet)
+let pendingDeleteLocalIds = [];   // ลบด้วย localId (สำหรับรายการที่ยังไม่รู้เลขแถว แต่กดยกเลิก)
+
+// ถ้ารายการถูกส่งไปแล้ว (posted=true) แต่ยังไม่ถูกยืนยันจาก Sheet เกินเวลานี้
+// จะเปลี่ยนไอคอนจากหมุนวนตลอดไป เป็นเครื่องหมายเตือน ให้ผู้ใช้กดยกเลิก/ลบได้ ไม่ค้างเฉยๆ
+const STALE_SYNC_MS = 20000;
 
 const grid = document.getElementById('menuGrid');
 const pop = document.getElementById('pop');
@@ -452,6 +461,16 @@ async function loadPendingDeleteRows(){
   } catch (e) { pendingDeleteRows = []; }
 }
 
+async function savePendingDeleteLocalIds(){
+  try { await store.set('pendingDeleteLocalIds', JSON.stringify(pendingDeleteLocalIds)); } catch (e) { /* ignore */ }
+}
+async function loadPendingDeleteLocalIds(){
+  try {
+    const raw = await store.get('pendingDeleteLocalIds');
+    if (raw) pendingDeleteLocalIds = JSON.parse(raw);
+  } catch (e) { pendingDeleteLocalIds = []; }
+}
+
 // ===== fetch with timeout so a slow connection doesn't hang forever =====
 async function fetchWithTimeout(url, options, timeoutMs){
   const controller = new AbortController();
@@ -493,6 +512,7 @@ function scheduleQuickSync(){
 async function loadUrl(){
   await loadLocalEntries();
   await loadPendingDeleteRows();
+  await loadPendingDeleteLocalIds();
   renderCombined();
 
   const val = await store.get('appsScriptUrl');
@@ -568,6 +588,7 @@ async function trySendPending(){
         body: JSON.stringify({ name: entry.name, price: entry.price, localId: entry.localId })
       }, 12000);
       entry.posted = true;
+      entry.postedAt = Date.now(); // ใช้เช็คว่ายืนยันจาก Sheet นานเกินไปหรือยัง (ค้าง/หมุนตลอดไป)
       anySucceeded = true;
     } catch (e) {
       // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - จะลองใหม่รอบถัดไปอัตโนมัติ ไม่ต้องแจ้งเตือนรบกวน
@@ -597,7 +618,8 @@ async function refreshData(){
 
     // ซ่อนรายการที่กำลังรอลบ (ยังไม่ยืนยันว่าลบสำเร็จจริงใน Sheet) ไม่ให้โผล่กลับมา
     const hidingRows = new Set(pendingDeleteRows);
-    serverEntries = (data.entries || []).filter(e => !hidingRows.has(e.row));
+    const hidingLocalIds = new Set(pendingDeleteLocalIds);
+    serverEntries = (data.entries || []).filter(e => !hidingRows.has(e.row) && !hidingLocalIds.has(e.localId));
     serverTodayTotal = data.todayTotal || 0;
     serverTodayCount = data.todayCount || 0;
     serverSummaryToday = data.summaryToday || {};
@@ -679,7 +701,8 @@ function renderSummary(){
   `;
 }
 
-let selectedRows = new Set();
+let selectedRows = new Set();      // เลขแถว (สำหรับรายการที่ยืนยันแล้วใน Sheet)
+let selectedLocalIds = new Set();  // localId (สำหรับรายการที่ยังกำลังซิงค์อยู่)
 
 function renderLog(){
   const el = document.getElementById('logList');
@@ -688,19 +711,26 @@ function renderLog(){
   if (!hasAny){
     el.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
     selectedRows = new Set();
+    selectedLocalIds = new Set();
     updateDeleteBtn();
     return;
   }
 
-  const pendingHtml = localEntries.map(e => `
-    <div class="log-row pending">
-      <span class="checkbox-spacer"></span>
+  const now = Date.now();
+  const pendingHtml = localEntries.map(e => {
+    const stale = e.posted && e.postedAt && (now - e.postedAt > STALE_SYNC_MS);
+    const statusIcon = stale
+      ? `<span class="sync-warn" title="ส่งไปนานแล้วแต่ยังไม่ยืนยันจาก Sheet — ติ๊กแล้วกดลบเพื่อยกเลิกได้ถ้าจำเป็น">⚠</span>`
+      : `<span class="sync-spin" title="${e.posted ? 'กำลังยืนยันจาก Sheet…' : 'กำลังส่ง…'}"></span>`;
+    return `
+    <div class="log-row pending${stale ? ' stale' : ''}" data-localid="${e.localId}">
+      <input type="checkbox" data-localid="${e.localId}">
       <span class="time">${e.time}</span>
       <span class="lname">${e.name}</span>
       <span class="lprice">${Number(e.price).toLocaleString()} ฿</span>
-      <span class="sync-spin" title="กำลังซิงค์"></span>
-    </div>
-  `).join('');
+      ${statusIcon}
+    </div>`;
+  }).join('');
 
   const confirmedHtml = serverEntries.map(r => `
     <div class="log-row" data-row="${r.row}">
@@ -713,8 +743,8 @@ function renderLog(){
 
   el.innerHTML = pendingHtml + confirmedHtml;
 
-  // คงสถานะติ๊กเลือกไว้ (สำหรับรายการที่ยืนยันแล้วเท่านั้น ลบได้เฉพาะรายการที่มีอยู่จริงใน Sheet)
-  el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+  // ช่องติ๊กของรายการที่ยืนยันแล้ว (ลบด้วยเลขแถว)
+  el.querySelectorAll('input[type="checkbox"][data-row]').forEach(cb => {
     const row = Number(cb.dataset.row);
     if (selectedRows.has(row)){
       cb.checked = true;
@@ -727,29 +757,47 @@ function renderLog(){
       updateDeleteBtn();
     });
   });
+
+  // ช่องติ๊กของรายการที่ยังกำลังซิงค์อยู่ (ลบ/ยกเลิกด้วย localId)
+  el.querySelectorAll('input[type="checkbox"][data-localid]').forEach(cb => {
+    const localId = cb.dataset.localid;
+    if (selectedLocalIds.has(localId)){
+      cb.checked = true;
+      cb.closest('.log-row').classList.add('checked');
+    }
+    cb.addEventListener('change', () => {
+      const rowEl = cb.closest('.log-row');
+      if (cb.checked){ selectedLocalIds.add(localId); rowEl.classList.add('checked'); }
+      else { selectedLocalIds.delete(localId); rowEl.classList.remove('checked'); }
+      updateDeleteBtn();
+    });
+  });
 }
 
 function updateDeleteBtn(){
-  deleteCount.textContent = selectedRows.size;
-  deleteBtn.classList.toggle('show', selectedRows.size > 0);
+  const count = selectedRows.size + selectedLocalIds.size;
+  deleteCount.textContent = count;
+  deleteBtn.classList.toggle('show', count > 0);
 }
 
 // กดลบปุ๊บ -> หายจากจอทันที (พร้อมหักยอด/จำนวนออกจากยอดรวมทันทีด้วย) ไม่ต้องรอซิงค์เสร็จ
-// แล้วค่อยส่งคำสั่งลบจริงไป Google Sheet เบื้องหลัง มี retry อัตโนมัติถ้าเน็ตสะดุด
+// รองรับทั้งรายการที่ยืนยันแล้วใน Sheet (ลบด้วยเลขแถว) และรายการที่ยัง "กำลังซิงค์"
+// อยู่ (ลบ/ยกเลิกด้วย localId) — กันปัญหาไอเทมค้างหมุนตลอดไปแล้วทำอะไรไม่ได้
 //
-// หมายเหตุ: ระหว่างที่ยังมีคิวลบค้างอยู่ (pendingDeleteRows) จะยังไม่ให้กดลบชุดใหม่ซ้อน
+// หมายเหตุ: ระหว่างที่ยังมีคิวลบค้างอยู่ จะยังไม่ให้กดลบชุดใหม่ซ้อน
 // เพื่อกันเลขแถวคลาดเคลื่อนหากแถวใน Sheet เลื่อนตำแหน่งระหว่างที่ยังไม่ยืนยันผล
 function deleteSelected(){
-  if (!webAppUrl || selectedRows.size === 0) return;
+  if (!webAppUrl) return;
+  if (selectedRows.size === 0 && selectedLocalIds.size === 0) return;
 
-  if (pendingDeleteRows.length > 0){
+  if (pendingDeleteRows.length > 0 || pendingDeleteLocalIds.length > 0){
     showPop('กำลังลบรายการก่อนหน้าอยู่ รอสักครู่แล้วลองใหม่อีกครั้ง', true);
     return;
   }
 
+  // --- รายการที่ยืนยันแล้วใน Sheet (ลบด้วยเลขแถว) ---
   const rows = Array.from(selectedRows);
   const rowsSet = new Set(rows);
-
   const removed = serverEntries.filter(e => rowsSet.has(e.row));
   const removedTotal = removed.reduce((s, e) => s + e.price, 0);
   serverTodayTotal -= removedTotal;
@@ -759,25 +807,46 @@ function deleteSelected(){
   });
   serverEntries = serverEntries.filter(e => !rowsSet.has(e.row));
 
+  // --- รายการที่ยังกำลังซิงค์อยู่ (ลบ/ยกเลิกด้วย localId) ---
+  const localIds = Array.from(selectedLocalIds);
+  const localIdSet = new Set(localIds);
+  // ถ้ายังไม่เคยส่งไป Sheet เลย ("posted" ยังเป็น false) ยกเลิกในเครื่องได้เลย ไม่ต้องแจ้งเซิร์ฟเวอร์
+  // ถ้าส่งไปแล้ว (posted=true) แต่ยังไม่ยืนยันเลขแถว ต้องคิวสั่งลบด้วย localId ไว้ เผื่อมันถูกบันทึกจริงไปแล้ว
+  const localIdsNeedingServerDelete = localEntries
+    .filter(e => localIdSet.has(e.localId) && e.posted)
+    .map(e => e.localId);
+  localEntries = localEntries.filter(e => !localIdSet.has(e.localId));
+  saveLocalEntries();
+
+  const totalCount = rows.length + localIds.length;
+
   selectedRows = new Set();
+  selectedLocalIds = new Set();
   pendingDeleteRows = rows;
+  pendingDeleteLocalIds = localIdsNeedingServerDelete;
   savePendingDeleteRows();
+  savePendingDeleteLocalIds();
   renderCombined();
   updateDeleteBtn();
-  showPop(`ลบ ${rows.length} รายการแล้ว`);
+  showPop(`ลบ ${totalCount} รายการแล้ว`);
 
-  trySendDeletes();
+  if (pendingDeleteRows.length > 0 || pendingDeleteLocalIds.length > 0){
+    trySendDeletes();
+  }
 }
 
 async function trySendDeletes(){
-  if (!webAppUrl || pendingDeleteRows.length === 0) return;
+  if (!webAppUrl) return;
+  if (pendingDeleteRows.length === 0 && pendingDeleteLocalIds.length === 0) return;
   try {
     await fetchWithTimeout(webAppUrl, {
       method: 'POST',
-      body: JSON.stringify({ action: 'delete', rows: pendingDeleteRows })
+      body: JSON.stringify({ action: 'delete', rows: pendingDeleteRows, localIds: pendingDeleteLocalIds })
     }, 12000);
     pendingDeleteRows = [];
+    pendingDeleteLocalIds = [];
     savePendingDeleteRows();
+    savePendingDeleteLocalIds();
     await refreshData(); // ดึงเลขแถวที่ถูกต้องล่าสุดทันที ก่อนจะอนุญาตให้ลบชุดถัดไป
   } catch (e) {
     // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - จะลองใหม่รอบถัดไปอัตโนมัติ รายการยังคงถูกซ่อนอยู่เหมือนเดิม
