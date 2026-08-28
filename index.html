@@ -5,29 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>บันทึกยอดขายหน้าบูธ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#211b17;
-    --surface:#2c2420;
-    --surface-2:#382e28;
-    --edge:#4a3d34;
-    --text:#f4ede2;
-    --muted:#b3a292;
-    --gold:#e3a23c;
-    --gold-dim:#5c4526;
-    --lime:#96c23f;
-    --lime-dim:#3f4b26;
-    --chili:#d6553f;
-    --chili-dim:#5a3128;
+    --bg:#1a1410;
+    --surface:#241c17;
+    --surface-2:#2f251e;
+    --edge:#4a3c30;
+    --text:#f5ede1;
+    --muted:#a89484;
+    --gold:#f0a83c;
+    --gold-dim:#5c4020;
+    --ember:#ff7a3d;
+    --ember-dim:#4a2414;
+    --lime:#a8d94a;
+    --lime-dim:#3a4620;
+    --chili:#ef5344;
+    --chili-dim:#5a2620;
     --good:#7fbf6a;
+    --char:#0e0a08;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  ::selection{background:var(--ember); color:#2c1704;}
   body{
     background:
-      radial-gradient(circle at 15% 0%, rgba(227,162,60,0.10), transparent 45%),
-      radial-gradient(circle at 90% 10%, rgba(150,194,63,0.08), transparent 40%),
+      radial-gradient(circle at 12% -5%, rgba(255,122,61,0.14), transparent 42%),
+      radial-gradient(circle at 92% 8%, rgba(168,217,74,0.08), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(239,83,68,0.06), transparent 50%),
       var(--bg);
     color:var(--text);
     font-family:'Kanit',sans-serif;
@@ -35,14 +40,23 @@
     padding-bottom:40px;
   }
   .wrap{max-width:640px;margin:0 auto;padding:18px 16px 0;}
+  .fig{font-family:'Space Mono',monospace; font-variant-numeric:tabular-nums;}
+  button, input, select{font-family:inherit;}
+  button:focus-visible, input:focus-visible, select:focus-visible, .item-btn:focus-visible{
+    outline:2px solid var(--ember); outline-offset:2px;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
 
   /* Header / ticket */
   .ticket{
     background:var(--surface);
     border:1px solid var(--edge);
-    border-radius:14px;
-    padding:18px 20px;
+    border-radius:18px 18px 0 0;
+    padding:20px 20px 16px;
     position:relative;
+    box-shadow:0 14px 34px -12px rgba(0,0,0,0.55);
     overflow:hidden;
   }
   .ticket::before{
@@ -51,85 +65,120 @@
     background:repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 8px);
     pointer-events:none;
   }
+  .ticket-zigzag{
+    height:11px; margin:0 0 14px;
+    background:
+      linear-gradient(-45deg, var(--surface) 5.5px, transparent 0) 0 5.5px / 11px 11px repeat-x,
+      linear-gradient(45deg, var(--surface) 5.5px, transparent 0) 0 5.5px / 11px 11px repeat-x;
+  }
   .shop-title{
-    font-weight:800; font-size:22px; letter-spacing:0.3px;
-    display:flex; align-items:center; gap:8px;
+    font-weight:800; font-size:22px; letter-spacing:0.2px;
+    display:flex; align-items:center; gap:9px;
   }
   .coin{
-    width:26px;height:26px;border-radius:50%;
-    background:linear-gradient(145deg,var(--gold),#b9782a);
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(150deg,var(--ember),var(--gold) 65%,#b9782a);
     display:inline-flex;align-items:center;justify-content:center;
-    font-size:13px;font-weight:800;color:#2c1c07;
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25);
+    font-size:15px;font-weight:800;color:#2c1704;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), 0 4px 12px -2px rgba(255,122,61,0.5);
     flex-shrink:0;
   }
-  .sub{color:var(--muted);font-size:13px;margin-top:2px;}
+  .sub{color:var(--muted);font-size:13px;margin-top:3px;}
   .today-row{
-    display:flex; gap:10px; margin-top:16px;
+    display:flex; gap:10px; margin-top:18px;
   }
   .stat{
-    flex:1; background:var(--surface-2); border-radius:10px; padding:12px 14px;
-    border:1px solid var(--edge);
+    flex:1; background:var(--surface-2); border-radius:14px; padding:13px 15px;
+    border:1px solid var(--edge); position:relative; overflow:visible;
   }
-  .stat .label{font-size:12px;color:var(--muted);}
-  .stat .value{font-size:24px;font-weight:700;margin-top:2px;}
+  .stat .label{font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;}
+  .stat .value{font-family:'Space Mono',monospace; font-size:25px;font-weight:700;margin-top:3px; position:relative; z-index:1;}
   .stat.money .value{color:var(--gold);}
   .stat.count .value{color:var(--lime);}
+  .stat.money::before{
+    content:""; position:absolute; inset:-30% -15% auto -15%; height:130%;
+    background:radial-gradient(ellipse at 30% 40%, rgba(255,122,61,0.4), transparent 70%);
+    filter:blur(16px); z-index:0; pointer-events:none;
+    animation:emberPulse 3.6s ease-in-out infinite;
+  }
+  @keyframes emberPulse{
+    0%,100%{opacity:.55; transform:scale(1);}
+    50%{opacity:1; transform:scale(1.1);}
+  }
 
   .status-line{
     display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-    font-size:12px;color:var(--muted);margin-top:10px;
+    font-size:12px;color:var(--muted);margin-top:12px;
   }
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
-  .dot.ok{background:var(--good);}
-  .dot.err{background:var(--chili);}
-  .pending-pill{
-    background:var(--gold-dim); color:var(--gold);
-    font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px;
-    display:none; align-items:center; gap:5px;
-  }
-  .pending-pill.show{display:inline-flex;}
-  .pending-pill .spin{
-    width:8px;height:8px;border-radius:50%;
-    border:2px solid var(--gold); border-top-color:transparent;
-    animation:spin 0.8s linear infinite;
-  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0; transition:background .25s;}
+  .dot.ok{background:var(--good); box-shadow:0 0 6px rgba(127,191,106,0.7);}
+  .dot.err{background:var(--chili); box-shadow:0 0 6px rgba(239,83,68,0.7);}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .settings-btn{
-    background:none;border:1px solid var(--edge);color:var(--muted);
-    font-family:'Kanit',sans-serif; font-size:12px;
-    border-radius:20px; padding:4px 12px; cursor:pointer; margin-left:auto;
+
+  /* ปุ่มซิงค์หลัก — วิธีเดียวที่ข้อมูลจะถูกส่งเข้า Sheet คือกดปุ่มนี้ ไม่มีการซิงค์อัตโนมัติ */
+  .sync-cta{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; margin:12px 0 0; padding:13px;
+    border-radius:0 0 14px 14px; border:1px solid var(--edge); border-top:none;
+    background:var(--surface-2); color:var(--muted);
+    font-family:'Kanit',sans-serif; font-weight:700; font-size:14px;
+    cursor:pointer; transition:transform .12s ease, box-shadow .25s ease, background .25s ease, color .25s ease;
+    -webkit-tap-highlight-color:transparent;
   }
-  .settings-btn:active{background:var(--surface-2);}
+  .sync-cta-icon{font-size:15px; line-height:1;}
+  .sync-cta.has-pending{
+    background:linear-gradient(135deg, var(--gold), var(--ember));
+    border-color:transparent; color:#2c1704;
+    box-shadow:0 8px 20px -8px rgba(255,122,61,0.65);
+    animation:syncGlow 1.8s ease-in-out infinite;
+  }
+  @keyframes syncGlow{
+    0%,100%{box-shadow:0 8px 20px -8px rgba(255,122,61,0.65);}
+    50%{box-shadow:0 10px 28px -6px rgba(255,122,61,0.95);}
+  }
+  .sync-cta:active{transform:scale(0.98);}
+  .sync-cta.syncing{opacity:0.8; cursor:progress; animation:none;}
+  .sync-cta.syncing .sync-cta-icon{display:inline-block; animation:spin 0.8s linear infinite;}
+  .sync-cta:disabled{cursor:progress;}
+
+  .settings-btn{
+    background:var(--surface-2);border:1px solid var(--edge);color:var(--muted);
+    font-family:'Kanit',sans-serif; font-size:12px;
+    border-radius:20px; padding:5px 13px; cursor:pointer; margin-left:auto;
+    transition:transform .12s ease, background .15s ease, border-color .15s ease, color .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .settings-btn:active{background:var(--edge); transform:scale(0.94);}
+  .settings-btn:hover{border-color:var(--ember); color:var(--text);}
 
   /* Menu grid */
   h2.section-label{
-    font-size:13px; font-weight:600; color:var(--muted);
-    text-transform:uppercase; letter-spacing:1px;
-    margin:22px 4px 10px;
+    font-size:12.5px; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:1.1px;
+    margin:24px 4px 10px;
   }
-  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:11px;}
   .item-btn{
-    border:none; border-radius:14px; padding:0;
+    border:none; border-radius:16px; padding:0;
     text-align:left; cursor:pointer; position:relative;
     font-family:'Kanit',sans-serif; color:#fff;
     display:block; min-height:128px; overflow:hidden;
     background-size:cover; background-position:center;
-    transition:transform .08s ease;
+    transition:transform .1s ease, box-shadow .15s ease;
     -webkit-tap-highlight-color:transparent;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 6px 16px -6px rgba(0,0,0,0.55);
   }
-  .item-btn:active{transform:scale(0.96);}
+  .item-btn:active{transform:scale(0.96); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 3px 8px -4px rgba(0,0,0,0.5);}
   .item-btn.wide{grid-column:1 / -1; min-height:110px;}
   .item-btn .tag{
     position:absolute; top:9px; left:9px;
     width:9px; height:9px; border-radius:50%;
-    box-shadow:0 0 0 2px rgba(0,0,0,0.35);
+    box-shadow:0 0 0 2px rgba(0,0,0,0.35), 0 0 8px 1px currentColor;
   }
-  .item-btn.cat-chicken .tag{background:var(--gold);}
-  .item-btn.cat-drink .tag{background:var(--lime);}
-  .item-btn.cat-spice .tag{background:var(--chili);}
-  .item-btn.cat-other .tag{background:var(--good);}
+  .item-btn.cat-chicken .tag{background:var(--gold); color:var(--gold);}
+  .item-btn.cat-drink .tag{background:var(--lime); color:var(--lime);}
+  .item-btn.cat-spice .tag{background:var(--chili); color:var(--chili);}
+  .item-btn.cat-other .tag{background:var(--good); color:var(--good);}
   .item-btn.noimg{
     background-image:none !important;
     border:1px solid var(--edge);
@@ -145,27 +194,49 @@
   }
   .item-btn .content{
     position:absolute; left:0; right:0; bottom:0; padding:12px 14px;
-    display:flex; flex-direction:column; gap:2px;
+    display:flex; flex-direction:column; align-items:flex-start; gap:7px;
   }
   .item-btn .name{font-weight:600; font-size:14.5px; line-height:1.25; text-shadow:0 1px 3px rgba(0,0,0,0.6);}
-  .item-btn .price{font-weight:800; font-size:19px; text-shadow:0 1px 3px rgba(0,0,0,0.6);}
-  .item-btn .price::after{content:" ฿";font-size:12.5px;font-weight:600;opacity:.85;}
+  .item-btn .price{
+    font-family:'Space Mono',monospace; font-weight:700; font-size:14px;
+    background:linear-gradient(135deg, var(--gold), var(--ember));
+    color:#2c1704; text-shadow:none;
+    padding:3px 10px 3px 11px; border-radius:20px;
+    box-shadow:0 3px 9px -2px rgba(0,0,0,0.5);
+  }
+  .item-btn .price::after{content:" ฿";font-size:11px;font-weight:600;opacity:.75;}
+
+  /* สถานะ "แตะซ้ำเพื่อยืนยัน" — กันเผลอกดเมนูเดิมซ้ำ 2 ครั้งติดกันโดยไม่ตั้งใจ */
+  .item-btn.confirm-armed{
+    animation:confirmPulse 0.9s ease-in-out infinite;
+  }
+  @keyframes confirmPulse{
+    0%,100%{box-shadow:0 0 0 3px var(--chili), inset 0 0 0 1px rgba(255,255,255,0.08), 0 6px 16px -6px rgba(0,0,0,0.55);}
+    50%{box-shadow:0 0 0 5px var(--chili), inset 0 0 0 1px rgba(255,255,255,0.08), 0 6px 16px -6px rgba(0,0,0,0.55);}
+  }
+  .confirm-badge{
+    position:absolute; inset:0; z-index:2;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    background:rgba(20,10,6,0.85);
+    color:#fff; font-weight:700; font-size:13px; line-height:1.45;
+    padding:10px;
+  }
 
   .pop{
-    position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
-    background:var(--good); color:#12310a; font-weight:700; font-size:14px;
-    padding:10px 20px; border-radius:30px; opacity:0;
-    transition:all .25s ease; pointer-events:none; z-index:50;
-    box-shadow:0 8px 20px rgba(0,0,0,0.35);
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%,16px) scale(0.94);
+    background:var(--gold); color:#2c1704; font-weight:700; font-size:14px;
+    padding:11px 22px; border-radius:30px; opacity:0;
+    transition:opacity .25s ease, transform .3s cubic-bezier(.34,1.56,.64,1); pointer-events:none; z-index:50;
+    box-shadow:0 10px 26px -6px rgba(0,0,0,0.55);
     white-space:nowrap;
   }
-  .pop.show{opacity:1; transform:translate(-50%,0);}
-  .pop.err{background:var(--chili); color:#3a0f08;}
+  .pop.show{opacity:1; transform:translate(-50%,0) scale(1);}
+  .pop.err{background:var(--chili); color:#fff2ee;}
 
   /* Log */
   .log-header{
     display:flex; align-items:center; justify-content:flex-end;
-    margin:22px 4px 10px; gap:10px;
+    margin:24px 4px 10px; gap:10px;
   }
   .log-header h2{margin:0;}
   .delete-btn{
@@ -173,30 +244,32 @@
     font-family:'Kanit',sans-serif; font-size:12.5px; font-weight:600;
     border-radius:20px; padding:5px 14px; cursor:pointer;
     display:none; align-items:center; gap:6px;
+    transition:transform .12s ease, background .15s ease;
   }
   .delete-btn.show{display:inline-flex;}
-  .delete-btn:active{opacity:0.7;}
+  .delete-btn:active{background:var(--chili); transform:scale(0.95);}
   .log{
-    background:var(--surface); border:1px solid var(--edge); border-radius:14px;
+    background:var(--surface); border:1px solid var(--edge); border-radius:16px;
     padding:6px 4px; margin-top:8px;
+    box-shadow:0 10px 26px -14px rgba(0,0,0,0.6);
   }
   .log-row{
     display:flex; align-items:center; gap:10px;
     padding:10px 14px; border-bottom:1px dashed var(--edge);
-    font-size:13.5px;
+    font-size:13.5px; transition:background .15s ease;
   }
   .log-row:last-child{border-bottom:none;}
   .log-row input[type="checkbox"]{
-    width:18px; height:18px; flex-shrink:0; accent-color:var(--chili);
+    width:18px; height:18px; flex-shrink:0; accent-color:var(--ember);
     cursor:pointer;
   }
   .log-row .checkbox-spacer{width:18px;flex-shrink:0;}
-  .log-row .time{color:var(--muted); width:40px; flex-shrink:0; font-variant-numeric:tabular-nums;}
+  .log-row .time{font-family:'Space Mono',monospace; color:var(--muted); width:44px; flex-shrink:0; font-size:12.5px;}
   .log-row .lname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .log-row .lprice{color:var(--gold); font-weight:600; flex-shrink:0;}
-  .log-row.checked{background:rgba(214,85,63,0.12);}
+  .log-row .lprice{font-family:'Space Mono',monospace; color:var(--gold); font-weight:700; flex-shrink:0;}
+  .log-row.checked{background:rgba(239,83,68,0.12);}
   .log-row.pending{opacity:0.65;}
-  .log-row.stale{opacity:1; background:rgba(214,85,63,0.08);}
+  .log-row.stale{opacity:1; background:rgba(239,83,68,0.1);}
   .log-row .sync-spin{
     width:12px;height:12px;border-radius:50%;flex-shrink:0;
     border:2px solid var(--gold); border-top-color:transparent;
@@ -205,17 +278,24 @@
   .log-row .sync-warn{
     color:var(--chili); font-size:15px; flex-shrink:0; line-height:1;
   }
-  .empty{padding:22px 14px; color:var(--muted); font-size:13.5px; text-align:center;}
+  .empty{padding:26px 14px; color:var(--muted); font-size:13.5px; text-align:center;}
 
   /* Settings modal */
   .overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,0.6);
+    position:fixed; inset:0; background:rgba(10,7,5,0.7);
     display:none; align-items:flex-end; justify-content:center; z-index:100;
+    backdrop-filter:blur(2px);
   }
   .overlay.show{display:flex;}
   .modal{
     background:var(--surface); border:1px solid var(--edge);
-    border-radius:18px 18px 0 0; padding:20px; width:100%; max-width:640px;
+    border-radius:20px 20px 0 0; padding:20px; width:100%; max-width:640px;
+    box-shadow:0 -14px 40px -10px rgba(0,0,0,0.6);
+    animation:sheetUp .28s cubic-bezier(.2,.8,.3,1);
+  }
+  @keyframes sheetUp{
+    from{transform:translateY(24px); opacity:0;}
+    to{transform:translateY(0); opacity:1;}
   }
   .modal h3{margin:0 0 6px; font-size:17px;}
   .modal p{color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 12px;}
@@ -223,27 +303,34 @@
     width:100%; background:var(--surface-2); border:1px solid var(--edge);
     color:var(--text); font-family:'Kanit',sans-serif; font-size:13.5px;
     padding:12px 14px; border-radius:10px; margin-bottom:12px;
+    transition:border-color .15s ease, box-shadow .15s ease;
   }
+  .modal input:focus{outline:none; border-color:var(--ember); box-shadow:0 0 0 3px rgba(255,122,61,0.18);}
   .modal-actions{display:flex; gap:10px;}
   .modal-actions button{
     flex:1; padding:12px; border-radius:10px; border:none; cursor:pointer;
     font-family:'Kanit',sans-serif; font-weight:600; font-size:14px;
+    transition:transform .12s ease, filter .15s ease;
   }
-  .btn-save{background:var(--gold); color:#2c1c07;}
+  .modal-actions button:active{transform:scale(0.97);}
+  .btn-save{background:linear-gradient(135deg, var(--gold), var(--ember)); color:#2c1704;}
+  .btn-save:hover{filter:brightness(1.08);}
   .btn-cancel{background:var(--surface-2); color:var(--muted); border:1px solid var(--edge) !important;}
 
   /* Menu header + edit-menu entry point */
   .menu-header-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
-    margin:22px 4px 10px;
+    margin:24px 4px 10px;
   }
   .edit-menu-btn{
-    background:none; border:1px solid var(--edge); color:var(--muted);
+    background:var(--surface-2); border:1px solid var(--edge); color:var(--muted);
     font-family:'Kanit',sans-serif; font-size:12px;
-    border-radius:20px; padding:4px 12px; cursor:pointer; flex-shrink:0;
+    border-radius:20px; padding:5px 13px; cursor:pointer; flex-shrink:0;
     -webkit-tap-highlight-color:transparent;
   }
-  .edit-menu-btn:active{background:var(--surface-2);}
+  .edit-menu-btn:active{background:var(--edge); transform:scale(0.94);}
+  .edit-menu-btn{transition:transform .12s ease, background .15s ease, border-color .15s ease;}
+  .edit-menu-btn:hover{border-color:var(--ember); color:var(--text);}
 
   /* Menu management modal */
   .menu-modal .modal{max-height:85vh; overflow-y:auto;}
@@ -258,11 +345,15 @@
   .menu-edit-row input, .menu-edit-row select{
     background:var(--surface); border:1px solid var(--edge); color:var(--text);
     font-family:'Kanit',sans-serif; font-size:12.5px; padding:8px; border-radius:8px; width:100%;
+    transition:border-color .15s ease;
   }
+  .menu-edit-row input:focus, .menu-edit-row select:focus{outline:none; border-color:var(--ember);}
   .menu-edit-row .me-remove{
     background:var(--chili-dim); color:#ffcabf; border:1px solid var(--chili);
     border-radius:8px; padding:8px 10px; cursor:pointer; flex-shrink:0; font-size:14px;
+    transition:transform .12s ease, background .15s ease;
   }
+  .menu-edit-row .me-remove:active{background:var(--chili); transform:scale(0.92);}
   .add-item-box{
     background:var(--surface-2); border:1px dashed var(--edge); border-radius:12px;
     padding:12px; margin-bottom:14px;
@@ -272,14 +363,19 @@
   .add-item-grid input, .add-item-grid select{
     background:var(--surface); border:1px solid var(--edge); color:var(--text);
     font-family:'Kanit',sans-serif; font-size:13px; padding:9px 10px; border-radius:8px; width:100%;
+    transition:border-color .15s ease;
   }
+  .add-item-grid input:focus, .add-item-grid select:focus{outline:none; border-color:var(--ember);}
   .add-item-file-row{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
   .add-item-file-row input[type=file]{flex:1; font-size:11.5px; color:var(--muted);}
   .btn-add-item{
-    width:100%; background:var(--lime); color:#1c2c0e; border:none;
-    font-family:'Kanit',sans-serif; font-weight:600; font-size:13.5px;
-    padding:10px; border-radius:10px; cursor:pointer;
+    width:100%; background:linear-gradient(135deg, var(--lime), #7fae30); color:#16240a; border:none;
+    font-family:'Kanit',sans-serif; font-weight:700; font-size:13.5px;
+    padding:11px; border-radius:10px; cursor:pointer;
+    transition:transform .12s ease, filter .15s ease;
   }
+  .btn-add-item:active{transform:scale(0.97);}
+  .btn-add-item:hover{filter:brightness(1.06);}
   .btn-reset-link{
     display:block; width:100%; text-align:center;
     background:none; border:none; color:var(--chili);
@@ -289,7 +385,7 @@
 
   /* Tabs: log vs summary */
   .tab-bar{
-    display:flex; gap:8px; margin:22px 4px 10px;
+    display:flex; gap:8px; margin:24px 4px 10px;
   }
   .tab-btn{
     flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--edge);
@@ -297,21 +393,24 @@
     font-size:13.5px; font-weight:600; cursor:pointer;
     display:flex; align-items:center; justify-content:center; gap:6px;
     -webkit-tap-highlight-color:transparent;
+    transition:background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
   }
   .tab-btn.active{
-    background:var(--gold-dim); color:var(--gold); border-color:var(--gold);
+    background:var(--ember-dim); color:var(--ember); border-color:var(--ember);
+    box-shadow:0 0 0 1px var(--ember) inset, 0 4px 14px -6px rgba(255,122,61,0.5);
   }
 
   /* Summary table (per-menu totals) */
   .summary-table{
-    background:var(--surface); border:1px solid var(--edge); border-radius:14px;
+    background:var(--surface); border:1px solid var(--edge); border-radius:16px;
     overflow:hidden; margin-top:8px;
+    box-shadow:0 10px 26px -14px rgba(0,0,0,0.6);
   }
   .summary-head{
     display:flex; align-items:center; gap:10px;
     background:var(--surface-2); padding:10px 14px;
     font-size:11.5px; font-weight:700; color:var(--muted);
-    text-transform:uppercase; letter-spacing:0.4px;
+    text-transform:uppercase; letter-spacing:0.5px;
   }
   .summary-row{
     display:flex; align-items:center; gap:10px;
@@ -321,17 +420,18 @@
   .summary-row:last-child{border-bottom:none;}
   .summary-row:nth-child(even){background:rgba(255,255,255,0.025);}
   .summary-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .summary-qty{width:56px; text-align:center; color:var(--lime); font-weight:700; flex-shrink:0;}
-  .summary-amt{width:82px; text-align:right; color:var(--gold); font-weight:700; flex-shrink:0;}
-  .summary-head .summary-qty{color:var(--muted); font-weight:700;}
-  .summary-head .summary-amt{color:var(--muted); font-weight:700;}
+  .summary-qty{font-family:'Space Mono',monospace; width:56px; text-align:center; color:var(--lime); font-weight:700; flex-shrink:0;}
+  .summary-amt{font-family:'Space Mono',monospace; width:88px; text-align:right; color:var(--gold); font-weight:700; flex-shrink:0;}
+  .summary-head .summary-qty{color:var(--muted); font-weight:700; font-family:'Kanit',sans-serif;}
+  .summary-head .summary-amt{color:var(--muted); font-weight:700; font-family:'Kanit',sans-serif;}
   .summary-total{
     display:flex; align-items:center; gap:10px;
-    padding:16px 14px; background:#000;
+    padding:17px 14px; background:linear-gradient(120deg, var(--char), #1c0f08);
+    border-top:1px solid var(--ember-dim);
   }
   .summary-total .summary-name{color:var(--text); font-weight:800; font-size:16px;}
-  .summary-total .summary-qty{color:var(--gold); font-weight:800; font-size:19px;}
-  .summary-total .summary-amt{color:var(--lime); font-weight:800; font-size:19px;}
+  .summary-total .summary-qty{color:var(--ember); font-weight:800; font-size:20px;}
+  .summary-total .summary-amt{color:var(--gold); font-weight:800; font-size:20px;}
 </style>
 </head>
 <body>
@@ -339,27 +439,31 @@
 <div class="wrap">
   <div class="ticket">
     <div class="shop-title"><span class="coin">3</span> บันทึกยอดขายหน้าบูธ</div>
-    <div class="sub">แตะเมนูที่ขายได้ ระบบจะบันทึกลง Google Sheet ให้อัตโนมัติ</div>
+    <div class="sub">แตะเมนูที่ขายได้ ระบบเก็บไว้ในเครื่องนี้ก่อน กดปุ่มซิงค์เมื่อพร้อมส่งเข้า Sheet</div>
 
     <div class="today-row">
       <div class="stat money">
         <div class="label">ยอดขายวันนี้</div>
-        <div class="value" id="todayTotal">–</div>
+        <div class="value fig" id="todayTotal">–</div>
       </div>
       <div class="stat count">
         <div class="label">จำนวนออเดอร์</div>
-        <div class="value" id="todayCount">–</div>
+        <div class="value fig" id="todayCount">–</div>
       </div>
     </div>
 
     <div class="status-line">
       <span class="dot" id="statusDot"></span>
       <span id="statusText">กำลังเชื่อมต่อ…</span>
-      <span class="pending-pill" id="pendingPill"><span class="spin"></span><span id="pendingCount">0</span> รอซิงค์</span>
-      <button class="settings-btn" id="syncNowBtn" title="ซิงค์ตอนนี้">🔄</button>
       <button class="settings-btn" id="settingsBtn">⚙ ตั้งค่า</button>
     </div>
   </div>
+  <div class="ticket-zigzag"></div>
+
+  <button class="sync-cta" id="syncNowBtn" type="button">
+    <span class="sync-cta-icon" id="syncCtaIcon">✓</span>
+    <span id="syncCtaText">ข้อมูลซิงค์ครบแล้ว</span>
+  </button>
 
   <div class="menu-header-row">
     <h2 class="section-label" style="margin:0;">เมนู — แตะเพื่อบันทึกการขาย</h2>
@@ -474,6 +578,16 @@ let serverSummaryTodayAmount = {}; // { "ชื่อเมนู": ยอดเ
 let localEntries = [];
 let currentTab = 'log'; // 'log' | 'summary'
 
+// กันเผลอกดเมนูเดิมซ้ำ 2 ครั้งติดกันโดยไม่ตั้งใจ: แตะครั้งแรกบันทึกปกติ
+// แตะเมนู "เดิม" ซ้ำภายในไม่กี่วิ -> ต้องแตะอีกครั้งเพื่อยืนยันก่อนถึงจะบันทึกจริง
+const REPEAT_GUARD_MS = 3500;
+let lastTapName = null;
+let lastTapAt = 0;
+let armedItemName = null;
+let armedTimer = null;
+
+let syncInProgress = false; // กันกดปุ่มซิงค์ซ้อนกันระหว่างกำลังส่งอยู่
+
 // รายการที่กำลังรอลบ (ติ๊กแล้วกดลบ แต่ยังไม่ยืนยันว่า Sheet ลบสำเร็จจริง)
 // ซ่อนจากหน้าจอทันทีตั้งแต่กดลบ ไม่ต้องรอ sync เสร็จ แล้ว retry เบื้องหลังจนสำเร็จ
 let pendingDeleteRows = [];       // ลบด้วยเลขแถว (สำหรับรายการที่ยืนยันแล้วว่ามีอยู่จริงใน Sheet)
@@ -487,8 +601,6 @@ const grid = document.getElementById('menuGrid');
 const pop = document.getElementById('pop');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
-const pendingPill = document.getElementById('pendingPill');
-const pendingCountEl = document.getElementById('pendingCount');
 const overlay = document.getElementById('overlay');
 const urlInput = document.getElementById('urlInput');
 const menuManageOverlay = document.getElementById('menuManageOverlay');
@@ -501,11 +613,13 @@ function renderMenu(){
     const btn = document.createElement('button');
     const hasImg = !!item.img;
     const knownCat = ['chicken', 'drink', 'spice', 'other'].includes(item.cat) ? item.cat : 'other';
-    btn.className = `item-btn cat-${knownCat}` + (item.wide ? ' wide' : '') + (hasImg ? '' : ' noimg');
+    const isArmed = armedItemName === item.name;
+    btn.className = `item-btn cat-${knownCat}` + (item.wide ? ' wide' : '') + (hasImg ? '' : ' noimg') + (isArmed ? ' confirm-armed' : '');
     if (hasImg) btn.style.backgroundImage = `url('${item.img}')`;
     btn.innerHTML = `
       <span class="tag"></span>
       ${hasImg ? '<span class="overlay-grad"></span>' : ''}
+      ${isArmed ? '<span class="confirm-badge">แตะอีกครั้ง<br>เพื่อยืนยันการขายซ้ำ</span>' : ''}
       <span class="content">
         <span class="name">${escapeHtml(item.name)}</span>
         <span class="price">${item.price}</span>
@@ -741,36 +855,17 @@ async function fetchWithTimeout(url, options, timeoutMs){
 }
 
 // ===== main flow =====
-let syncLoopsStarted = false;
-
-// ตั้งค่า loop คอย sync เบื้องหลัง (retry การขาย / retry การลบ / ดึงข้อมูลเป็นรอบ)
-// ต้องถูกเรียกครั้งเดียวไม่ว่าจะมี URL อยู่แล้วตอนเปิดแอป หรือเพิ่งมาวางทีหลังผ่านหน้าตั้งค่า
-// (เดิมมีบั๊ก: ถ้าเพิ่งวาง URL ครั้งแรกผ่านหน้าตั้งค่า loop นี้จะไม่เคยถูกตั้งเลยตลอด session
-//  ทำให้ถ้าการส่งครั้งแรกพลาด จะไม่มีการ retry อัตโนมัติอีกต่อไปจนกว่าจะรีเฟรชหน้า)
-function startSyncLoops(){
-  if (syncLoopsStarted) return;
-  syncLoopsStarted = true;
-  setInterval(refreshData, 25000);    // ดึงข้อมูลจริงจาก Sheet เป็นรอบ ไม่ถี่เกินไป
-  setInterval(trySendPending, 5000);  // retry รายการขายที่ยังส่งไม่สำเร็จ
-  setInterval(trySendDeletes, 5000);  // retry คำสั่งลบที่ยังส่งไม่สำเร็จ
-}
-
-// ดีบาวซ์: หลังส่งสำเร็จ ดึงข้อมูลจริงจาก Sheet มายืนยันเร็วขึ้น (ไม่ต้องรอครบ 25 วิ)
-// แต่ไม่ยิงถี่เกินไปถ้ามีหลายรายการสำเร็จติดกัน
-let quickSyncTimer = null;
-function scheduleQuickSync(){
-  if (quickSyncTimer) return;
-  quickSyncTimer = setTimeout(() => {
-    quickSyncTimer = null;
-    refreshData();
-  }, 1500);
-}
+// หมายเหตุสำคัญ: แอปนี้ "ไม่มีการซิงค์อัตโนมัติ" อีกต่อไป ไม่ว่าจะบันทึกขาย/ลบ/เวลาผ่านไป
+// ข้อมูลทุกอย่างเก็บอยู่ในเครื่องนี้ก่อนเท่านั้น จนกว่าจะกดปุ่ม "ซิงค์เข้า Sheet" เอง
+// (เดิมมีระบบ retry อัตโนมัติทุก 5-25 วิ ซึ่งพอเน็ตแย่มากๆ จะยิ่งทำให้ไม่เสถียร
+//  จึงเปลี่ยนมาให้ผู้ใช้เป็นคนกำหนดจังหวะซิงค์เองแทน)
 
 async function loadUrl(){
   await loadLocalEntries();
   await loadPendingDeleteRows();
   await loadPendingDeleteLocalIds();
   renderCombined();
+  updateSyncButton();
 
   const val = await store.get('appsScriptUrl');
   if (val) webAppUrl = val;
@@ -780,11 +875,9 @@ async function loadUrl(){
     openSettings();
   } else {
     urlInput.value = webAppUrl;
-    setStatus('', 'กำลังเชื่อมต่อครั้งแรก อาจใช้เวลาสักครู่…');
-    refreshData();
-    trySendPending();
-    trySendDeletes();
-    startSyncLoops();
+    setStatus('', 'กำลังโหลดข้อมูลล่าสุดครั้งแรก…');
+    await refreshData(); // โหลดครั้งเดียวตอนเปิดแอป เพื่อดูข้อมูลที่เคยซิงค์ไว้ก่อนหน้า
+    updateSyncButton();
   }
 }
 
@@ -799,12 +892,10 @@ async function saveUrl(){
     await store.set('appsScriptUrl', val);
     webAppUrl = val;
     overlay.classList.remove('show');
-    showPop('บันทึก URL แล้ว กำลังเชื่อมต่อ…');
+    showPop('บันทึก URL แล้ว กำลังโหลดข้อมูล…');
     setStatus('', 'กำลังเชื่อมต่อครั้งแรก อาจใช้เวลาสักครู่…');
-    refreshData();
-    trySendPending();
-    trySendDeletes();
-    startSyncLoops(); // สำคัญ: ต้องเรียกตรงนี้ด้วย ไม่งั้นจะไม่มี loop คอย retry เลยตลอด session
+    await refreshData();
+    updateSyncButton();
   } catch (e) {
     showPop('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', true);
   }
@@ -812,10 +903,42 @@ async function saveUrl(){
 
 function openSettings(){ overlay.classList.add('show'); }
 
-// แตะเมนู -> ขึ้นจอทันที ไม่รอเน็ต แล้วค่อยส่งเบื้องหลัง
+// แตะเมนู -> ขึ้นจอทันที เก็บไว้ในเครื่องนี้ก่อนเท่านั้น (ไม่ส่งขึ้น Sheet จนกว่าจะกดปุ่มซิงค์)
+// ถ้าแตะเมนู "เดิม" ซ้ำภายในไม่กี่วินาที จะยังไม่บันทึกทันที แต่ขึ้นสถานะให้แตะอีกครั้งเพื่อ
+// ยืนยันก่อน กันเผลอกดซ้ำโดยไม่ตั้งใจ
 function logSale(item){
   if (!webAppUrl){ openSettings(); return; }
 
+  // ถ้าเมนูนี้กำลังรอการยืนยันอยู่พอดี (นี่คือการแตะครั้งที่ 2) -> ยืนยันและบันทึกขายจริง
+  if (armedItemName === item.name){
+    clearTimeout(armedTimer);
+    armedItemName = null;
+    lastTapName = item.name;
+    lastTapAt = Date.now();
+    renderMenu();
+    commitSale(item);
+    return;
+  }
+
+  const isRepeatTap = item.name === lastTapName && (Date.now() - lastTapAt) < REPEAT_GUARD_MS;
+  lastTapName = item.name;
+  lastTapAt = Date.now();
+
+  if (isRepeatTap){
+    armedItemName = item.name;
+    renderMenu();
+    clearTimeout(armedTimer);
+    armedTimer = setTimeout(() => {
+      armedItemName = null;
+      renderMenu();
+    }, REPEAT_GUARD_MS);
+    return;
+  }
+
+  commitSale(item);
+}
+
+function commitSale(item){
   const entry = {
     localId: genLocalId(),
     name: item.name,
@@ -826,43 +949,62 @@ function logSale(item){
   localEntries.unshift(entry);
   saveLocalEntries();
   renderCombined();
-  showPop(`บันทึก "${item.name}" แล้ว ✓`);
-
-  trySendPending();
+  updateSyncButton();
+  showPop(`บันทึก "${item.name}" แล้ว ✓ (ยังไม่ได้ซิงค์)`);
 }
 
-// ส่งรายการที่ยังไม่ยืนยันไป Google Sheet เบื้องหลัง มี timeout กันค้าง
+// ส่งรายการขายทั้งหมดที่ค้างอยู่ในเครื่องไป Google Sheet ทีละรายการ (ไม่ขนาน กันชนกัน)
+// เช็ค response จริงจากเซิร์ฟเวอร์ทุกครั้ง ไม่ใช่แค่ดูว่า fetch ไม่ error ก็ถือว่าสำเร็จ
 async function trySendPending(){
-  if (!webAppUrl) return;
+  if (!webAppUrl) return { sent: 0, failed: 0 };
   const toSend = localEntries.filter(e => !e.posted);
-  if (toSend.length === 0){ updatePendingIndicator(); return; }
+  if (toSend.length === 0) return { sent: 0, failed: 0 };
 
-  let anySucceeded = false;
-  for (const entry of toSend){
+  const textEl = document.getElementById('syncCtaText');
+  let sent = 0, failed = 0;
+
+  for (let i = 0; i < toSend.length; i++){
+    const entry = toSend[i];
+    if (textEl) textEl.textContent = `กำลังส่งรายการขาย ${i + 1}/${toSend.length}…`;
     try {
-      await fetchWithTimeout(webAppUrl, {
+      const res = await fetchWithTimeout(webAppUrl, {
         method: 'POST',
         body: JSON.stringify({ name: entry.name, price: entry.price, localId: entry.localId })
-      }, 12000);
-      entry.posted = true;
-      entry.postedAt = Date.now(); // ใช้เช็คว่ายืนยันจาก Sheet นานเกินไปหรือยัง (ค้าง/หมุนตลอดไป)
-      anySucceeded = true;
+      }, 15000);
+      const data = await res.json();
+      if (data && data.success){
+        entry.posted = true;
+        entry.postedAt = Date.now();
+        sent++;
+      } else {
+        failed++; // เซิร์ฟเวอร์ตอบกลับว่าไม่สำเร็จจริง (ไม่ใช่แค่เน็ตหลุด) - เก็บไว้ในเครื่อง ลองใหม่รอบหน้า
+      }
     } catch (e) {
-      // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - จะลองใหม่รอบถัดไปอัตโนมัติ ไม่ต้องแจ้งเตือนรบกวน
+      failed++; // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - ยังอยู่ในเครื่องครบ ไม่หาย ลองใหม่ได้ตอนกดซิงค์รอบหน้า
     }
   }
   saveLocalEntries();
-  updatePendingIndicator();
-  if (anySucceeded) scheduleQuickSync(); // ยืนยันจาก Sheet เร็วขึ้น ไม่ต้องรอครบ 25 วิ
+  updateSyncButton();
+  return { sent, failed };
 }
 
-function updatePendingIndicator(){
+function updateSyncButton(){
   const unsent = localEntries.filter(e => !e.posted).length;
-  if (unsent > 0){
-    pendingCountEl.textContent = unsent;
-    pendingPill.classList.add('show');
+  const pendingDel = pendingDeleteRows.length + pendingDeleteLocalIds.length;
+  const total = unsent + pendingDel;
+  const btn = document.getElementById('syncNowBtn');
+  const icon = document.getElementById('syncCtaIcon');
+  const text = document.getElementById('syncCtaText');
+  if (!btn) return;
+
+  if (total > 0){
+    btn.classList.add('has-pending');
+    icon.textContent = '📤';
+    text.textContent = `ซิงค์ ${total} รายการเข้า Sheet`;
   } else {
-    pendingPill.classList.remove('show');
+    btn.classList.remove('has-pending');
+    icon.textContent = '✓';
+    text.textContent = webAppUrl ? 'ข้อมูลซิงค์ครบแล้ว' : 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ';
   }
 }
 
@@ -889,17 +1031,53 @@ async function refreshData(){
 
     setStatus('ok', 'เชื่อมต่อ Google Sheet แล้ว');
     renderCombined();
-    updatePendingIndicator();
   } catch (e) {
-    setStatus('err', 'เชื่อมต่อไม่ได้ — กำลังลองใหม่อัตโนมัติ');
+    setStatus('err', 'โหลดข้อมูลไม่สำเร็จ — เช็คเน็ต/URL แล้วลองซิงค์ใหม่');
     // ไม่ล้างข้อมูลที่แสดงอยู่ เพื่อไม่ให้จอกระพริบตอนเน็ตสะดุดแป๊บเดียว
   }
 }
 
+// ปุ่มซิงค์หลัก — จุดเดียวในแอปที่จะมีการส่งข้อมูลขึ้น Google Sheet ทำงานทีละขั้นตอน
+// (ส่งรายการขายทั้งหมดก่อน -> ส่งคำสั่งลบทั้งหมด -> ค่อยดึงข้อมูลล่าสุดมายืนยัน)
+// ไม่ทำพร้อมกันแบบขนาน เพื่อกันปัญหาชนกันตอนเน็ตแย่ๆ ที่เคยทำให้ข้อมูลดูหายไป
 async function syncNow(){
-  showPop('กำลังซิงค์…');
-  setStatus('', 'กำลังซิงค์…');
-  await Promise.allSettled([refreshData(), trySendPending(), trySendDeletes()]);
+  if (!webAppUrl){ openSettings(); return; }
+  if (syncInProgress) return;
+
+  const totalBefore = localEntries.filter(e => !e.posted).length + pendingDeleteRows.length + pendingDeleteLocalIds.length;
+  if (totalBefore === 0){
+    await refreshData(); // ไม่มีอะไรค้างส่ง แค่ดึงข้อมูลล่าสุดมาดูเฉยๆ
+    updateSyncButton();
+    showPop('อัปเดตข้อมูลล่าสุดแล้ว');
+    return;
+  }
+
+  syncInProgress = true;
+  const btn = document.getElementById('syncNowBtn');
+  const textEl = document.getElementById('syncCtaText');
+  btn.disabled = true;
+  btn.classList.add('syncing');
+
+  try {
+    const saleResult = await trySendPending();
+    const delResult = await trySendDeletes();
+    if (textEl) textEl.textContent = 'กำลังอัปเดตข้อมูลล่าสุด…';
+    await refreshData();
+
+    const stillPending = localEntries.filter(e => !e.posted).length + pendingDeleteRows.length + pendingDeleteLocalIds.length;
+    if (stillPending === 0){
+      showPop(`ซิงค์สำเร็จทั้งหมด (${totalBefore} รายการ)`);
+    } else {
+      showPop(`ซิงค์ได้บางส่วน เหลือ ${stillPending} รายการที่ยังส่งไม่ได้ (ยังอยู่ในเครื่อง ไม่หาย ลองซิงค์ใหม่ได้)`, true);
+    }
+  } catch (e) {
+    showPop('ซิงค์ไม่สำเร็จ ลองใหม่อีกครั้ง (ข้อมูลยังอยู่ในเครื่องครบ ไม่หาย)', true);
+  } finally {
+    syncInProgress = false;
+    btn.disabled = false;
+    btn.classList.remove('syncing');
+    updateSyncButton();
+  }
 }
 
 // รวมรายการฝั่งเครื่อง (ยังไม่ยืนยัน) + รายการจริงจาก Sheet มาแสดงเป็นชุดเดียว
@@ -1051,20 +1229,12 @@ function updateDeleteBtn(){
   deleteBtn.classList.toggle('show', count > 0);
 }
 
-// กดลบปุ๊บ -> หายจากจอทันที (พร้อมหักยอด/จำนวนออกจากยอดรวมทันทีด้วย) ไม่ต้องรอซิงค์เสร็จ
-// รองรับทั้งรายการที่ยืนยันแล้วใน Sheet (ลบด้วยเลขแถว) และรายการที่ยัง "กำลังซิงค์"
-// อยู่ (ลบ/ยกเลิกด้วย localId) — กันปัญหาไอเทมค้างหมุนตลอดไปแล้วทำอะไรไม่ได้
-//
-// หมายเหตุ: ระหว่างที่ยังมีคิวลบค้างอยู่ จะยังไม่ให้กดลบชุดใหม่ซ้อน
-// เพื่อกันเลขแถวคลาดเคลื่อนหากแถวใน Sheet เลื่อนตำแหน่งระหว่างที่ยังไม่ยืนยันผล
+// กดลบปุ๊บ -> หายจากจอทันที (พร้อมหักยอด/จำนวนออกจากยอดรวมทันทีด้วย) เก็บเป็นคำสั่ง
+// ลบที่ "รอส่ง" ไว้ในเครื่องเท่านั้น จะไม่ถูกส่งไป Sheet จนกว่าจะกดปุ่มซิงค์
+// รองรับทั้งรายการที่ยืนยันแล้วใน Sheet (ลบด้วยเลขแถว) และรายการที่ยังไม่ได้ซิงค์
+// (ลบ/ยกเลิกด้วย localId)
 function deleteSelected(){
-  if (!webAppUrl) return;
   if (selectedRows.size === 0 && selectedLocalIds.size === 0) return;
-
-  if (pendingDeleteRows.length > 0 || pendingDeleteLocalIds.length > 0){
-    showPop('กำลังลบรายการก่อนหน้าอยู่ รอสักครู่แล้วลองใหม่อีกครั้ง', true);
-    return;
-  }
 
   // --- รายการที่ยืนยันแล้วใน Sheet (ลบด้วยเลขแถว) ---
   const rows = Array.from(selectedRows);
@@ -1078,7 +1248,7 @@ function deleteSelected(){
   });
   serverEntries = serverEntries.filter(e => !rowsSet.has(e.row));
 
-  // --- รายการที่ยังกำลังซิงค์อยู่ (ลบ/ยกเลิกด้วย localId) ---
+  // --- รายการที่ยังไม่ได้ซิงค์ (ลบ/ยกเลิกด้วย localId) ---
   const localIds = Array.from(selectedLocalIds);
   const localIdSet = new Set(localIds);
   // ถ้ายังไม่เคยส่งไป Sheet เลย ("posted" ยังเป็น false) ยกเลิกในเครื่องได้เลย ไม่ต้องแจ้งเซิร์ฟเวอร์
@@ -1093,34 +1263,37 @@ function deleteSelected(){
 
   selectedRows = new Set();
   selectedLocalIds = new Set();
-  pendingDeleteRows = rows;
-  pendingDeleteLocalIds = localIdsNeedingServerDelete;
+  pendingDeleteRows = pendingDeleteRows.concat(rows);
+  pendingDeleteLocalIds = pendingDeleteLocalIds.concat(localIdsNeedingServerDelete);
   savePendingDeleteRows();
   savePendingDeleteLocalIds();
   renderCombined();
   updateDeleteBtn();
-  showPop(`ลบ ${totalCount} รายการแล้ว`);
-
-  if (pendingDeleteRows.length > 0 || pendingDeleteLocalIds.length > 0){
-    trySendDeletes();
-  }
+  updateSyncButton();
+  showPop(`ลบ ${totalCount} รายการแล้ว (ยังไม่ได้ซิงค์)`);
 }
 
 async function trySendDeletes(){
-  if (!webAppUrl) return;
-  if (pendingDeleteRows.length === 0 && pendingDeleteLocalIds.length === 0) return;
+  if (!webAppUrl) return { success: true };
+  if (pendingDeleteRows.length === 0 && pendingDeleteLocalIds.length === 0) return { success: true };
+  const textEl = document.getElementById('syncCtaText');
+  if (textEl) textEl.textContent = 'กำลังส่งคำสั่งลบ…';
   try {
-    await fetchWithTimeout(webAppUrl, {
+    const res = await fetchWithTimeout(webAppUrl, {
       method: 'POST',
       body: JSON.stringify({ action: 'delete', rows: pendingDeleteRows, localIds: pendingDeleteLocalIds })
-    }, 12000);
-    pendingDeleteRows = [];
-    pendingDeleteLocalIds = [];
-    savePendingDeleteRows();
-    savePendingDeleteLocalIds();
-    await refreshData(); // ดึงเลขแถวที่ถูกต้องล่าสุดทันที ก่อนจะอนุญาตให้ลบชุดถัดไป
+    }, 15000);
+    const data = await res.json();
+    if (data && data.success){
+      pendingDeleteRows = [];
+      pendingDeleteLocalIds = [];
+      savePendingDeleteRows();
+      savePendingDeleteLocalIds();
+      return { success: true };
+    }
+    return { success: false }; // เซิร์ฟเวอร์ตอบกลับว่าไม่สำเร็จ - คำสั่งลบยังอยู่ในคิว ลองใหม่รอบหน้า
   } catch (e) {
-    // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - จะลองใหม่รอบถัดไปอัตโนมัติ รายการยังคงถูกซ่อนอยู่เหมือนเดิม
+    return { success: false }; // ส่งไม่สำเร็จ (เน็ตช้า/หลุด) - คำสั่งลบยังอยู่ในคิว ลองใหม่รอบหน้า
   }
 }
 
